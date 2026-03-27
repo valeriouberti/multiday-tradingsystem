@@ -1,0 +1,300 @@
+// This Pine Script™ source code is subject to the terms of the Mozilla Public License 2.0
+// https://mozilla.org/MPL/2.0/
+// © Multiday CFD Italian Stock Validator v1.0
+
+//@version=6
+indicator("ITA CFD Validator v1.0", overlay=true, max_labels_count=50, max_lines_count=50)
+
+// =============================================================================
+// INPUTS
+// =============================================================================
+
+// --- Strategy Parameters ---
+grp_ema     = "EMA Crossover"
+emaFast     = input.int(20, "EMA Fast", minval=5, group=grp_ema)
+emaSlow     = input.int(50, "EMA Slow", minval=10, group=grp_ema)
+emaBone     = input.int(9, "EMA Bone Zone", minval=3, group=grp_ema)
+
+grp_macd    = "MACD"
+macdFast    = input.int(12, "MACD Fast", group=grp_macd)
+macdSlow    = input.int(26, "MACD Slow", group=grp_macd)
+macdSignal  = input.int(9, "MACD Signal", group=grp_macd)
+
+grp_mom     = "Momentum"
+rsiLen      = input.int(14, "RSI Length", group=grp_mom)
+rsiThresh   = input.int(50, "RSI Threshold", group=grp_mom)
+mfiLen      = input.int(14, "MFI Length", group=grp_mom)
+mfiThresh   = input.int(50, "MFI Threshold", group=grp_mom)
+
+grp_rs      = "Relative Strength"
+rsBenchmark = input.symbol("MIL:ETFMIB", "FTSE MIB Benchmark", group=grp_rs)
+rsLookback  = input.int(20, "RS Lookback Days", group=grp_rs)
+rsRocDays   = input.int(5, "RS ROC Days", group=grp_rs)
+
+grp_atr     = "ATR / Stop / TP"
+atrLen      = input.int(14, "ATR Length", group=grp_atr)
+atrMult     = input.float(1.5, "ATR Multiplier (Stop/TP1)", step=0.1, group=grp_atr)
+chandLook   = input.int(22, "Chandelier Lookback", group=grp_atr)
+chandMult   = input.float(3.0, "Chandelier ATR Mult", step=0.1, group=grp_atr)
+
+grp_gate    = "Gates"
+vixThresh   = input.float(25.0, "VIX Threshold", group=grp_gate)
+adxLen      = input.int(14, "ADX Length", group=grp_gate)
+adxThresh   = input.float(20.0, "ADX Threshold", group=grp_gate)
+
+grp_entry   = "Entry"
+gapPct      = input.float(0.5, "GAP_UP Min %", step=0.1, group=grp_entry)
+orbVolMult  = input.float(1.5, "ORB Volume Multiplier", step=0.1, group=grp_entry)
+
+grp_pos     = "Position Sizing"
+capital     = input.float(1000, "Capital (€)", group=grp_pos)
+riskPct     = input.float(2.0, "Risk per Trade (%)", step=0.1, group=grp_pos)
+leverage    = input.int(5, "Leverage", minval=1, maxval=5, group=grp_pos)
+maxCapPct   = input.float(40.0, "Max Capital per Position (%)", step=1.0, group=grp_pos)
+
+grp_vis     = "Visuals"
+showTable   = input.bool(true, "Show Dashboard Table", group=grp_vis)
+showLevels  = input.bool(true, "Show Stop/TP1/Chandelier Lines", group=grp_vis)
+showEntry   = input.bool(true, "Show Entry Signals", group=grp_vis)
+
+// =============================================================================
+// CALCULATIONS — 6 SCORED CHECKS
+// =============================================================================
+
+// --- Check 1: Daily EMA 20 > EMA 50 ---
+ema20 = ta.ema(close, emaFast)
+ema50 = ta.ema(close, emaSlow)
+ema9  = ta.ema(close, emaBone)
+check1_emaD = ema20 > ema50
+
+// --- Check 2: Weekly EMA 20 > EMA 50 ---
+weeklyClose = request.security(syminfo.tickerid, "W", close)
+weeklyEmaF  = request.security(syminfo.tickerid, "W", ta.ema(close, emaFast))
+weeklyEmaS  = request.security(syminfo.tickerid, "W", ta.ema(close, emaSlow))
+check2_emaW = weeklyEmaF > weeklyEmaS
+
+// --- Check 3: MACD > Signal ---
+[macdLine, signalLine, histLine] = ta.macd(close, macdFast, macdSlow, macdSignal)
+check3_macd = macdLine > signalLine
+
+// --- Check 4: RSI > 50 ---
+rsiVal = ta.rsi(close, rsiLen)
+check4_rsi = rsiVal > rsiThresh
+
+// --- Check 5: MFI > 50 ---
+mfiVal = ta.mfi(hlc3, mfiLen)
+check5_mfi = mfiVal > mfiThresh
+
+// --- Check 6: RS vs FTSE MIB rising (20d lookback, 5d ROC) ---
+benchClose  = request.security(rsBenchmark, timeframe.period, close)
+rsLine      = benchClose > 0 ? close / benchClose : 0
+rsNow       = rsLine
+rsPrev      = rsLine[rsRocDays]
+check6_rs   = rsNow > rsPrev
+
+// --- Total Score ---
+score = (check1_emaD ? 1 : 0) + (check2_emaW ? 1 : 0) + (check3_macd ? 1 : 0) + (check4_rsi ? 1 : 0) + (check5_mfi ? 1 : 0) + (check6_rs ? 1 : 0)
+
+// =============================================================================
+// 2 GATES
+// =============================================================================
+
+// --- Gate 1: VIX < 25 ---
+vixClose = request.security("CBOE:VIX", "D", close)
+gate_vix = vixClose < vixThresh
+
+// --- Gate 2: ADX >= 20 on FTSE MIB ---
+// Extract ADX from benchmark via helper function to avoid tuple indexing in request.security
+benchAdxHelper() =>
+    [_, _, adxResult] = ta.dmi(adxLen, adxLen)
+    adxResult
+
+benchAdxVal = request.security(rsBenchmark, "D", benchAdxHelper())
+gate_adx = benchAdxVal >= adxThresh
+
+// =============================================================================
+// STATUS: GO / WATCH / SKIP
+// =============================================================================
+
+goThresh    = 5
+watchThresh = 4
+
+gatesFailed = (not gate_vix ? 1 : 0) + (not gate_adx ? 1 : 0)
+
+status_go   = score >= goThresh and gatesFailed == 0
+status_watch = (score >= goThresh and gatesFailed > 0) or (score >= watchThresh and score < goThresh)
+status_skip = score < watchThresh
+
+statusStr = status_go ? "GO" : status_watch ? "WATCH" : "SKIP"
+statusColor = status_go ? color.green : status_watch ? color.orange : color.red
+
+// =============================================================================
+// ENTRY HELPERS — ATR, Stop, TP1, Chandelier, Position Size
+// =============================================================================
+
+atrVal = ta.atr(atrLen)
+
+// Stop Loss: Close - ATR × multiplier
+stopLoss = close - atrVal * atrMult
+
+// TP1: Close + ATR × multiplier
+tp1Price = close + atrVal * atrMult
+
+// Chandelier Exit: Highest(High, 22) - ATR × 3
+highestHigh  = ta.highest(high, chandLook)
+chandelierStop = highestHigh - atrVal * chandMult
+
+// Position sizing
+stopDistance = atrVal * atrMult
+riskAmount   = capital * (riskPct / 100)
+riskShares   = stopDistance > 0 ? math.floor(riskAmount / stopDistance) : 0
+maxNotional  = capital * (maxCapPct / 100) * leverage
+maxShares    = close > 0 ? math.floor(maxNotional / close) : 0
+posSize      = math.min(riskShares, maxShares)
+notionalVal  = posSize * close
+marginVal    = leverage > 0 ? notionalVal / leverage : notionalVal
+
+// =============================================================================
+// ENTRY METHOD DETECTION
+// =============================================================================
+
+// GAP_UP: open above EMA20 + above previous high, gap >= threshold
+gapValue = close[1] > 0 ? (open - close[1]) / close[1] * 100 : 0
+isGapUp  = open > ema20 and open > high[1] and close[1] > ema9[1] and gapValue >= gapPct
+
+// BONE_ZONE: price dips into EMA 9-20 zone, green candle closes above EMA 9
+isBoneZone = low < ema20 and close > ema9 and close > open and not isGapUp
+
+// PULLBACK: previous close below EMA20, current close above EMA20
+isPullback = close[1] < ema20[1] and close > ema20 and not isGapUp and not isBoneZone
+
+// ORB: close breaks above first bar high with volume surge (simplified for daily)
+volSma = ta.sma(volume, 10)
+isOrb  = close > high[1] and volume >= volSma * orbVolMult and not isGapUp and not isBoneZone and not isPullback
+
+entryMethod = isGapUp ? "GAP_UP" : isBoneZone ? "BONE_ZONE" : isPullback ? "PULLBACK" : isOrb ? "ORB" : "WAIT"
+hasEntry = entryMethod != "WAIT"
+
+// =============================================================================
+// ENTRY SIGNAL — only when status is GO or WATCH and entry method detected
+// =============================================================================
+
+entrySignal = (status_go or status_watch) and hasEntry
+buySignal   = entrySignal and not entrySignal[1]  // only on first bar
+
+// =============================================================================
+// PLOTS — EMA Lines
+// =============================================================================
+
+plot(ema9,  "EMA 9",  color=color.new(color.yellow, 30), linewidth=1)
+plot(ema20, "EMA 20", color=color.new(color.blue, 20), linewidth=2)
+plot(ema50, "EMA 50", color=color.new(color.red, 20), linewidth=2)
+
+// Background color based on status
+bgcolor(status_go ? color.new(color.green, 93) : status_watch ? color.new(color.orange, 95) : na)
+
+// =============================================================================
+// PLOTS — Stop / TP1 / Chandelier levels (only on actionable bars)
+// =============================================================================
+
+plot(showLevels and (status_go or status_watch) ? stopLoss : na, "Stop Loss", color=color.red, style=plot.style_cross, linewidth=1)
+plot(showLevels and (status_go or status_watch) ? tp1Price : na, "TP1", color=color.green, style=plot.style_cross, linewidth=1)
+plot(showLevels and (status_go or status_watch) ? chandelierStop : na, "Chandelier", color=color.purple, style=plot.style_circles, linewidth=1)
+
+// =============================================================================
+// ENTRY SIGNALS — Labels on chart
+// =============================================================================
+
+if showEntry and buySignal and status_go
+    label.new(bar_index, low, "GO\n" + entryMethod, style=label.style_label_up, color=color.green, textcolor=color.white, size=size.normal)
+
+if showEntry and buySignal and status_watch
+    label.new(bar_index, low, "WATCH\n" + entryMethod, style=label.style_label_up, color=color.orange, textcolor=color.white, size=size.small)
+
+// =============================================================================
+// ALERTS
+// =============================================================================
+
+alertcondition(buySignal and status_go, title="GO Entry Signal", message="{{ticker}} — GO ({{plot_0}}/6) — Entry: check chart")
+alertcondition(buySignal and status_watch, title="WATCH Entry Signal", message="{{ticker}} — WATCH ({{plot_0}}/6) — Entry: check chart")
+alertcondition(close < chandelierStop, title="Chandelier Exit", message="{{ticker}} chiude sotto Chandelier Stop — valutare uscita")
+
+// =============================================================================
+// DASHBOARD TABLE
+// =============================================================================
+
+if showTable and barstate.islast
+    var table dash = table.new(position.top_right, 2, 18, bgcolor=color.new(color.black, 15), frame_color=color.gray, frame_width=1, border_color=color.gray, border_width=1)
+
+    // Header
+    table.cell(dash, 0, 0, "🇮🇹 ITA CFD Validator", text_color=color.white, text_size=size.normal, bgcolor=color.new(color.blue, 30), text_halign=text.align_left)
+    table.cell(dash, 1, 0, statusStr, text_color=color.white, text_size=size.normal, bgcolor=statusColor)
+
+    // Score
+    table.cell(dash, 0, 1, "Score", text_color=color.gray, text_size=size.small, text_halign=text.align_left)
+    table.cell(dash, 1, 1, str.tostring(score) + "/6", text_color=score >= 5 ? color.green : score >= 4 ? color.orange : color.red, text_size=size.small)
+
+    // Check 1: EMA D
+    table.cell(dash, 0, 2, "EMA D (20>50)", text_color=color.gray, text_size=size.small, text_halign=text.align_left)
+    table.cell(dash, 1, 2, check1_emaD ? "✅" : "❌", text_color=check1_emaD ? color.green : color.red, text_size=size.small)
+
+    // Check 2: EMA W
+    table.cell(dash, 0, 3, "EMA W (20>50)", text_color=color.gray, text_size=size.small, text_halign=text.align_left)
+    table.cell(dash, 1, 3, check2_emaW ? "✅" : "❌", text_color=check2_emaW ? color.green : color.red, text_size=size.small)
+
+    // Check 3: MACD
+    table.cell(dash, 0, 4, "MACD > Signal", text_color=color.gray, text_size=size.small, text_halign=text.align_left)
+    table.cell(dash, 1, 4, check3_macd ? "✅" : "❌", text_color=check3_macd ? color.green : color.red, text_size=size.small)
+
+    // Check 4: RSI
+    table.cell(dash, 0, 5, "RSI > " + str.tostring(rsiThresh), text_color=color.gray, text_size=size.small, text_halign=text.align_left)
+    table.cell(dash, 1, 5, (check4_rsi ? "✅ " : "❌ ") + str.tostring(math.round(rsiVal)), text_color=check4_rsi ? color.green : color.red, text_size=size.small)
+
+    // Check 5: MFI
+    table.cell(dash, 0, 6, "MFI > " + str.tostring(mfiThresh), text_color=color.gray, text_size=size.small, text_halign=text.align_left)
+    table.cell(dash, 1, 6, (check5_mfi ? "✅ " : "❌ ") + str.tostring(math.round(mfiVal)), text_color=check5_mfi ? color.green : color.red, text_size=size.small)
+
+    // Check 6: RS
+    table.cell(dash, 0, 7, "RS vs FTSE MIB", text_color=color.gray, text_size=size.small, text_halign=text.align_left)
+    table.cell(dash, 1, 7, check6_rs ? "✅ Rising" : "❌ Falling", text_color=check6_rs ? color.green : color.red, text_size=size.small)
+
+    // Separator
+    table.cell(dash, 0, 8, "── Gates ──", text_color=color.gray, text_size=size.small, text_halign=text.align_left)
+    table.cell(dash, 1, 8, "", text_size=size.small)
+
+    // Gate 1: VIX
+    table.cell(dash, 0, 9, "VIX < " + str.tostring(vixThresh), text_color=color.gray, text_size=size.small, text_halign=text.align_left)
+    table.cell(dash, 1, 9, (gate_vix ? "✅ " : "❌ ") + str.tostring(math.round(vixClose, 1)), text_color=gate_vix ? color.green : color.red, text_size=size.small)
+
+    // Gate 2: ADX
+    table.cell(dash, 0, 10, "ADX FTSE MIB ≥ " + str.tostring(adxThresh), text_color=color.gray, text_size=size.small, text_halign=text.align_left)
+    table.cell(dash, 1, 10, (gate_adx ? "✅ " : "❌ ") + str.tostring(math.round(benchAdxVal, 1)), text_color=gate_adx ? color.green : color.red, text_size=size.small)
+
+    // Separator
+    table.cell(dash, 0, 11, "── Livelli ──", text_color=color.gray, text_size=size.small, text_halign=text.align_left)
+    table.cell(dash, 1, 11, "", text_size=size.small)
+
+    // Stop Loss
+    table.cell(dash, 0, 12, "Stop Loss", text_color=color.gray, text_size=size.small, text_halign=text.align_left)
+    table.cell(dash, 1, 12, "€" + str.tostring(math.round(stopLoss, 2)), text_color=color.red, text_size=size.small)
+
+    // TP1
+    table.cell(dash, 0, 13, "TP1 (50%)", text_color=color.gray, text_size=size.small, text_halign=text.align_left)
+    table.cell(dash, 1, 13, "€" + str.tostring(math.round(tp1Price, 2)), text_color=color.green, text_size=size.small)
+
+    // Chandelier
+    table.cell(dash, 0, 14, "Chandelier", text_color=color.gray, text_size=size.small, text_halign=text.align_left)
+    table.cell(dash, 1, 14, "€" + str.tostring(math.round(chandelierStop, 2)), text_color=color.purple, text_size=size.small)
+
+    // Separator
+    table.cell(dash, 0, 15, "── Position ──", text_color=color.gray, text_size=size.small, text_halign=text.align_left)
+    table.cell(dash, 1, 15, "", text_size=size.small)
+
+    // Size
+    table.cell(dash, 0, 16, "Size / Notional", text_color=color.gray, text_size=size.small, text_halign=text.align_left)
+    table.cell(dash, 1, 16, str.tostring(posSize) + " (€" + str.tostring(math.round(notionalVal)) + ")", text_color=color.white, text_size=size.small)
+
+    // Entry Method
+    table.cell(dash, 0, 17, "Entry", text_color=color.gray, text_size=size.small, text_halign=text.align_left)
+    entryColor = hasEntry ? (status_go ? color.green : color.orange) : color.gray
+    table.cell(dash, 1, 17, entryMethod, text_color=entryColor, text_size=size.small)

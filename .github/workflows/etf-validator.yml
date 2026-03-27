@@ -1,0 +1,57 @@
+# ETF Validator — runs at 14:00 CET (12:00 UTC summer / 13:00 UTC winter)
+# Trigger manually from GitHub app with tickers, or on schedule with last saved config.
+#
+# Cron uses UTC. Set to 12:00 UTC = 14:00 CEST (summer). In winter runs at 13:00 CET (1h early, still fine).
+
+name: ETF Validator
+
+on:
+  schedule:
+    - cron: "0 12 * * 1-5"   # Mon-Fri 12:00 UTC → 14:00 CEST
+  workflow_dispatch:
+    inputs:
+      tickers:
+        description: "Tickers comma-separated (e.g. XDW0.MI,DFND.MI,XDWI.MI)"
+        required: false
+        type: string
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    env:
+      TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+      TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: "pip"
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Update tickers (if provided)
+        if: github.event.inputs.tickers != ''
+        run: |
+          python scripts/update_tickers.py config_etf.yaml "${{ github.event.inputs.tickers }}"
+
+      - name: Run ETF validator
+        run: python main_etf.py --config config_etf.yaml
+
+      - name: Upload report CSV
+        uses: actions/upload-artifact@v4
+        with:
+          name: etf-report-${{ github.run_id }}
+          path: output/reports_etf/*.csv
+          retention-days: 30
+
+      - name: Commit updated config (if tickers changed)
+        if: github.event.inputs.tickers != ''
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add config_etf.yaml
+          git diff --cached --quiet || git commit -m "Update ETF tickers: ${{ github.event.inputs.tickers }}"
+          git push
