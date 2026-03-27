@@ -88,6 +88,13 @@ def print_report(results: list[dict], config: dict) -> None:
     )
     console.print()
 
+    # --- Sort results: GO first, then WATCH, then SKIP (by score desc) ---
+    status_order = {"GO": 0, "WATCH": 1, "SKIP": 2}
+    results = sorted(
+        results,
+        key=lambda r: (status_order.get(r["status"], 9), -r["score"]),
+    )
+
     # --- Main table ---
     table = Table(show_header=True, header_style="bold cyan", expand=True)
     table.add_column("Stock", style="bold", no_wrap=True)

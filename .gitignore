@@ -7,3 +7,5 @@ output/reports_etf/*.csv
 .DS_Store
 
 .env
+
+output/backtest*

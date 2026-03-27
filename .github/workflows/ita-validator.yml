@@ -32,13 +32,13 @@ jobs:
       - name: Install dependencies
         run: pip install -r requirements.txt
 
-      - name: Update tickers (if provided)
-        if: github.event.inputs.tickers != ''
-        run: |
-          python scripts/update_tickers.py config_ita.yaml "${{ github.event.inputs.tickers }}"
-
       - name: Run ITA validator
-        run: python main_ita.py --config config_ita.yaml
+        run: |
+          if [ -n "${{ github.event.inputs.tickers }}" ]; then
+            python main_ita.py --config config_ita.yaml --tickers "${{ github.event.inputs.tickers }}"
+          else
+            python main_ita.py --config config_ita.yaml
+          fi
 
       - name: Upload report CSV
         uses: actions/upload-artifact@v4
@@ -46,12 +46,3 @@ jobs:
           name: ita-report-${{ github.run_id }}
           path: output/reports_ita/*.csv
           retention-days: 30
-
-      - name: Commit updated config (if tickers changed)
-        if: github.event.inputs.tickers != ''
-        run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add config_ita.yaml
-          git diff --cached --quiet || git commit -m "Update ITA tickers: ${{ github.event.inputs.tickers }}"
-          git push

@@ -30,10 +30,14 @@ def main():
         "--config", default="config_ita.yaml",
         help="Path to Italian config file (default: config_ita.yaml)",
     )
+    parser.add_argument(
+        "--tickers",
+        help="Override config tickers (comma-separated, e.g. ENI.MI,LDO.MI,PRY.MI)",
+    )
     args = parser.parse_args()
 
     config = load_config(args.config)
-    tickers = config["tickers"]
+    tickers = [t.strip() for t in args.tickers.split(",") if t.strip()] if args.tickers else config["tickers"]
     benchmark = config.get("benchmark", "ETFMIB.MI")
 
     logger.info(

@@ -1,7 +1,44 @@
 tickers:
-- ENI.MI
-- LDO.MI
-- PRY.MI
+  - A2A.MI
+  - AMP.MI
+  - AZM.MI
+  - BC.MI
+  - BGN.MI
+  - BMED.MI
+  - BPE.MI
+  - BZU.MI
+  - CPR.MI
+  - DIA.MI
+  - ENEL.MI
+  - ENI.MI
+  - ERG.MI
+  - FBK.MI
+  - G.MI
+  - HER.MI
+  - IG.MI
+  - INW.MI
+  - IP.MI
+  - ISP.MI
+  - IVG.MI
+  - ITW.MI
+  - LDO.MI
+  - MB.MI
+  - MONC.MI
+  - NEXI.MI
+  - PIRC.MI
+  - PRY.MI
+  - PST.MI
+  - RACE.MI
+  - REC.MI
+  - SRG.MI
+  - STLAM.MI
+  - STMMI.MI
+  - TEN.MI
+  - TIT.MI
+  - TRN.MI
+  - UCG.MI
+  - UNI.MI
+
 benchmark: ETFMIB.MI
 strategy:
   ema_fast: 20
