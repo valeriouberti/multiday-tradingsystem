@@ -1,127 +1,46 @@
-# =============================================================================
-# Multiday CFD Trading Validator v1.0 — Italian Stock Strategy (Borsa Italiana)
-# =============================================================================
-# Trade Italian large-cap stocks as CFDs via Fineco.
-# CFD with leverage (ESMA max 5:1). Capital: €1,000.
-# 6 scored checks + 2 gates + risk-based position sizing + Chandelier Exit
-# =============================================================================
-
-# ---------------------------------------------------------------------------
-# Tickers: 3 Italian large-cap stocks selected via AI catalyst prompt
-# Replace these daily. Must be FTSE MIB or Mid Cap components.
-#
-# FTSE MIB Reference (all verified on yfinance with .MI suffix):
-#   Banking:       ISP.MI    (Intesa Sanpaolo)
-#                  UCG.MI    (Unicredit)
-#                  BAMI.MI   (Banco BPM)
-#                  FBK.MI    (FinecoBank)
-#   Energy:        ENI.MI    (ENI)
-#                  ENEL.MI   (Enel)
-#                  TEN.MI    (Tenaris)
-#                  SRG.MI    (Snam)
-#                  SRPT.MI   (Saipem)
-#   Defence:       LDO.MI    (Leonardo)
-#   Automotive:    RACE.MI   (Ferrari)
-#   Insurance:     G.MI      (Generali)
-#   Insurance:     UNI.MI    (Unipol)
-#   Telecom:       TIT.MI    (Telecom Italia)
-#   Postal:        PST.MI    (Poste Italiane)
-#   Consumer:      CPR.MI    (Campari)
-#   Semiconductor: STMMI.MI  (STMicroelectronics)
-# ---------------------------------------------------------------------------
 tickers:
-  - LDO.MI
-  - ENI.MI
-  - PRY.MI
-
-# ---------------------------------------------------------------------------
-# Benchmark: FTSE MIB ETF on Borsa Italiana for RS Line + ADX gate
-# ETFMIB.MI = Lyxor FTSE MIB ETF (has OHLCV, better than index for TA)
-# ---------------------------------------------------------------------------
+- ENI.MI
+- LDO.MI
+- PRY.MI
 benchmark: ETFMIB.MI
-
-# ---------------------------------------------------------------------------
-# Strategy: all indicator parameters
-# ---------------------------------------------------------------------------
 strategy:
-  # EMA crossover — Daily (trend direction)
   ema_fast: 20
   ema_slow: 50
-  ema_bone: 9 # Bone Zone EMA
-
-  # EMA crossover — Weekly (structural trend filter)
+  ema_bone: 9
   weekly_ema_fast: 20
   weekly_ema_slow: 50
-
-  # MACD (momentum confirmation)
   macd_fast: 12
   macd_slow: 26
   macd_signal: 9
-
-  # RSI (momentum filter)
   rsi_length: 14
   rsi_threshold: 50
-
-  # MFI — Money Flow Index (more reliable than OBV on lower-volume stocks)
   mfi_length: 14
   mfi_threshold: 50
-
-  # ATR (stop loss calculation)
   atr_length: 14
   atr_multiplier: 1.5
-
-  # RS Line — relative strength vs FTSE MIB (20d lookback, 5d ROC)
   rs_lookback_days: 20
   rs_roc_days: 5
-
-  # VIX Regime gate
   vix_threshold: 25
-
-  # ADX Regime gate — on FTSE MIB benchmark
   adx_length: 14
   adx_threshold: 20
-
-  # Chandelier Exit — volatility-adaptive trailing stop
   chandelier_lookback: 22
   chandelier_atr_mult: 3.0
-
-  # GAP_UP entry — morning gap above previous high (09:00 CET)
-  gap_threshold_pct: 0.5 # 0.5% for individual stocks
-
-  # Data download periods
-  data_period_daily: "120d"
-  data_period_weekly: "2y"
-  data_period_h1: "5d"
-
-# ---------------------------------------------------------------------------
-# Position Sizing — CFD with leverage
-# ---------------------------------------------------------------------------
+  gap_threshold_pct: 0.5
+  data_period_daily: 120d
+  data_period_weekly: 2y
+  data_period_h1: 5d
 position_sizing:
-  capital: 1000 # Total trading capital in EUR
-  risk_per_trade: 0.02 # Risk 2% per trade (€20) — tighter stops on volatile stocks
-  leverage: 5 # ESMA max leverage for stock CFDs
-  max_capital_pct: 0.40 # Max 40% of capital per position (margin-based)
-
-# ---------------------------------------------------------------------------
-# Alerts: score thresholds (6 checks)
-# ---------------------------------------------------------------------------
+  capital: 1000
+  risk_per_trade: 0.02
+  leverage: 5
+  max_capital_pct: 0.4
 alerts:
-  go_threshold: 5 # score >= 5/6 -> GO
-  watch_threshold:
-    4 # score == 4/6 -> WATCH
-    # score <= 3/6 -> SKIP
-
-# ---------------------------------------------------------------------------
-# Session
-# ---------------------------------------------------------------------------
+  go_threshold: 5
+  watch_threshold: 4
 session:
-  timezone: "Europe/Rome"
-  market_open_utc: "08:00" # Borsa Italiana opens 09:00 CET
+  timezone: Europe/Rome
+  market_open_utc: 08:00
   orb_minutes: 15
-
-# ---------------------------------------------------------------------------
-# Output
-# ---------------------------------------------------------------------------
 output:
   save_csv: true
-  csv_dir: "output/reports_ita"
+  csv_dir: output/reports_ita
