@@ -13,7 +13,11 @@ import os
 import urllib.request
 import urllib.error
 
+from dotenv import load_dotenv
+
 logger = logging.getLogger(__name__)
+
+load_dotenv()
 
 BOT_TOKEN = os.environ.get("TELEGRAM_BOT_TOKEN", "")
 CHAT_ID = os.environ.get("TELEGRAM_CHAT_ID", "")

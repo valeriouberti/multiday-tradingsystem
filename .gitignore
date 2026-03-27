@@ -5,3 +5,5 @@ __pycache__/
 output/reports_ita/*.csv
 output/reports_etf/*.csv
 .DS_Store
+
+.env
