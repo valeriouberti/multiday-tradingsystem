@@ -1,126 +1,50 @@
-# =============================================================================
-# Multiday ETF Trading Validator v2.1 — ETF Sector Strategy (Borsa Italiana)
-# =============================================================================
-# Trade sector ETFs on Borsa Italiana (EUR) via Fineco. Cash ETF (no CFD/leverage).
-# v2.1: 6 scored checks + 4 gates + position sizing + Chandelier Exit
-# =============================================================================
-
-# ---------------------------------------------------------------------------
-# Tickers: 3 sector ETFs selected via AI sector rotation prompt
-#
-# Borsa Italiana ETF Reference (all verified on yfinance with .MI suffix):
-#   Tech:          XDWD.MI   (Xtrackers MSCI World UCITS ETF 1C)
-#   Energy:        XDW0.MI   (Xtrackers MSCI World Energy UCITS ETF 1C)
-#   Financials:    XDWF.MI   (Xtrackers MSCI World Financials)
-#   Industrials:   XDWI.MI   (Xtrackers MSCI World Industrials)
-#   Materials:     XDWM.MI   (Xtrackers MSCI World Materials)
-#   Health Care:   XDWH.MI   (Xtrackers MSCI World Health Care)
-#   Aerospace/Def: DFND.MI   (iShares Global Aerospace & Defence)
-# ---------------------------------------------------------------------------
 tickers:
-  - XDW0.MI
-  - DFND.MI
-  - XDWI.MI
-
-# ---------------------------------------------------------------------------
-# Benchmark: S&P 500 on Borsa Italiana (EUR-denominated) for RS Line comparison
-# Note: SXR8 is not available on .MI — use CSSPX.MI (same ISIN: IE00B5BMR087)
-# ---------------------------------------------------------------------------
+- XDW0.MI
+- XDWI.MI
+- XDWD.MI
 benchmark: CSSPX.MI
-
-# ---------------------------------------------------------------------------
-# Strategy: all indicator parameters
-# ---------------------------------------------------------------------------
 strategy:
-  # EMA crossover — Daily (trend direction)
   ema_fast: 20
   ema_slow: 50
-  ema_bone: 9               # Bone Zone EMA
-
-  # EMA crossover — Weekly (structural trend filter)
+  ema_bone: 9
   weekly_ema_fast: 20
   weekly_ema_slow: 50
-
-  # MACD (momentum confirmation)
   macd_fast: 12
   macd_slow: 26
   macd_signal: 9
-
-  # RSI (momentum filter)
   rsi_length: 14
   rsi_threshold: 50
-
-  # MFI — Money Flow Index (replaces OBV — more reliable on ETFs)
   mfi_length: 14
   mfi_threshold: 50
-
-  # ATR (stop loss calculation)
   atr_length: 14
   atr_multiplier: 1.5
-
-  # RS Line — Relative strength vs benchmark (20d lookback, 5d ROC)
-  rs_lookback_days: 20       # Longer window for institutional rotation
-  rs_roc_days: 5             # Rate of change over last 5 sessions
-
-  # Benchmark Health gate
+  rs_lookback_days: 20
+  rs_roc_days: 5
   bench_ema_fast: 20
   bench_ema_slow: 50
-
-  # VIX Regime gate — blocks momentum entries in high-volatility environments
-  vix_threshold: 25          # VIX >= this -> all GO downgraded to WATCH
-
-  # ADX Regime gate — filters out range-bound markets where momentum fails
-  adx_length: 14             # ADX period on benchmark
-  adx_threshold: 20          # ADX < this -> market is range-bound, GO downgraded
-
-  # Correlation gate — flags overlapping sector exposure
-  correlation_lookback: 20   # Days of returns to compute correlation
-  correlation_threshold: 0.7 # Pairwise corr > this -> flag as correlated
-
-  # Chandelier Exit — volatility-adaptive trailing stop
-  chandelier_lookback: 22    # Highest high lookback (22 = ~1 month of sessions)
-  chandelier_atr_mult: 3.0   # ATR multiplier for Chandelier (wider than entry stop)
-
-  # GAP_UP entry — morning gap above previous high (09:00 CET)
-  gap_threshold_pct: 0.3     # Minimum gap % to trigger (0.3% filters noise)
-
-  # Data download periods
-  data_period_daily: "120d"
-  data_period_weekly: "2y"   # Weekly data for weekly EMA (needs 50+ weeks)
-  data_period_h1: "5d"
-
-# ---------------------------------------------------------------------------
-# Position Sizing — risk-based allocation (cash ETF, no leverage)
-# ---------------------------------------------------------------------------
+  vix_threshold: 25
+  adx_length: 14
+  adx_threshold: 20
+  correlation_lookback: 20
+  correlation_threshold: 0.7
+  chandelier_lookback: 22
+  chandelier_atr_mult: 3.0
+  gap_threshold_pct: 0.3
+  data_period_daily: 120d
+  data_period_weekly: 2y
+  data_period_h1: 5d
 position_sizing:
-  capital: 4000              # Total trading capital in EUR
-  risk_per_trade: 0.015      # Risk 1.5% of capital per trade
-  commission: 2.95           # Fineco commission per trade in EUR (0 for some ETFs)
-  max_capital_pct: 0.40      # Max % of capital per single position (no leverage)
-
-# ---------------------------------------------------------------------------
-# Alerts: score thresholds (adjusted for 6 checks)
-# ---------------------------------------------------------------------------
+  capital: 4000
+  risk_per_trade: 0.015
+  commission: 2.95
+  max_capital_pct: 0.4
 alerts:
-  go_threshold: 5            # score >= 5/6 -> GO
-  watch_threshold: 4         # score == 4/6 -> WATCH
-                              # score <= 3/6 -> SKIP
-
-# ---------------------------------------------------------------------------
-# Session
-# ---------------------------------------------------------------------------
+  go_threshold: 5
+  watch_threshold: 4
 session:
-  timezone: "Europe/Rome"
-  market_open_utc: "08:00"    # Borsa Italiana opens 09:00 CET
+  timezone: Europe/Rome
+  market_open_utc: 08:00
   orb_minutes: 15
-  # Entry windows (CET):
-  #   Morning:   09:00-09:15  — SOLO GAP_UP (gap confermato su apertura)
-  #   Afternoon: 14:30-16:30  — PULLBACK / ORB / BONE_ZONE (finestra preferita)
-  #   Deadline:  17:00        — no entry dopo (Borsa chiude 17:25)
-
-# ---------------------------------------------------------------------------
-# Output
-# ---------------------------------------------------------------------------
 output:
   save_csv: true
-  csv_dir: "output/reports_etf"
+  csv_dir: output/reports_etf
