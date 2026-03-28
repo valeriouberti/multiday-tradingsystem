@@ -46,6 +46,7 @@ project/
 ├── backtest_ftsemib.py     ← Full FTSE MIB universe backtest with aggregate report
 ├── optimize_params.py      ← In-sample grid search (1080 combos on 2020-2024)
 ├── walk_forward.py         ← Walk-Forward Analysis (8 windows, OOS validation)
+├── optimize_optuna.py      ← Optuna Bayesian optimization (ITA + US, simple + WFA)
 ├── scripts/
 │   └── update_tickers.py   ← CI helper to update tickers in YAML
 ├── .github/workflows/
@@ -107,6 +108,7 @@ Entry timing helpers:
 - rich >= 13.0
 - matplotlib >= 3.7
 - python-dotenv == 1.0.1
+- optuna >= 3.0
 
 ## Running
 
@@ -129,6 +131,12 @@ python backtest_ftsemib.py                                                # Full
 ```bash
 python optimize_params.py     # In-sample grid search (1080 combos, 2020-2024)
 python walk_forward.py        # Walk-Forward Analysis (8 windows, OOS validation)
+
+# Optuna Bayesian optimization (faster, works for both ITA and US)
+python optimize_optuna.py --mode ita --trials 300          # ITA single-period
+python optimize_optuna.py --mode us --trials 300           # US single-period
+python optimize_optuna.py --mode ita --wfa --trials 200    # ITA Walk-Forward
+python optimize_optuna.py --mode us --wfa --trials 200     # US Walk-Forward (33 sector-sample stocks)
 ```
 
 ## Tuned Parameters (ITA, optimized on 2020-2024)
@@ -152,6 +160,7 @@ The backtester uses vectorized signals + bar-by-bar simulation:
 ### Optimization Pipeline
 1. **Grid Search** (`optimize_params.py`): tests 1080 parameter combos on 2020-2024 in-sample
 2. **Walk-Forward Analysis** (`walk_forward.py`): 8 rolling windows (24m train / 6m test), optimizes per window, reports only OOS performance. Key output: efficiency ratio (OOS/IS return) and parameter stability across windows
+3. **Optuna Bayesian** (`optimize_optuna.py`): TPE sampler replaces brute-force grid. Works for both ITA (39 tickers) and US (33 sector-sample stocks). Two modes: single-period optimization and Walk-Forward Analysis. Wider search space (MFI 35-60, RSI 35-60, ADX 10-30, GO 3-5). Converges in ~300 trials vs 1,080 combos. Includes parameter importance analysis
 
 ## Automation (GitHub Actions)
 - ITA: triggered at 8:30 CET or via GitHub mobile app with `--tickers` override

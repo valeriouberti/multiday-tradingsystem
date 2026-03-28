@@ -735,6 +735,7 @@ Motore di backtesting completo per validare la strategia su dati storici.
 | `backtest_ftsemib.py` | Backtest tutti i 39 titoli FTSE MIB con report aggregato |
 | `optimize_params.py` | Grid search in-sample (1080 combinazioni su 2020-2024) |
 | `walk_forward.py` | Walk-Forward Analysis (8 finestre rolling, validazione OOS) |
+| `optimize_optuna.py` | Optuna Bayesian optimization (ITA + US, simple + WFA) |
 
 ### Trade Lifecycle (simulazione)
 
@@ -809,6 +810,53 @@ Finestra 8: Train 2022-07→2024-06 | Test 2024-H2  (OOS)
 - **Baseline comparison** = WFA vs parametri fissi su tutte le finestre OOS
 
 Output: `output/walk_forward/walk_forward_results.csv`
+
+### Optuna Bayesian Optimization (`optimize_optuna.py`)
+
+Alternativa al grid search brute-force. Usa il **TPE sampler** (Tree-structured Parzen Estimator) per convergere verso i parametri ottimali in ~300 trial invece di 1.080 combinazioni.
+
+**Vantaggi rispetto al grid search:**
+- ~3-4x piu veloce (300 trial vs 1.080 combos)
+- Spazio di ricerca piu ampio (continuo, non discreto)
+- Pruning automatico dei trial non promettenti
+- Parameter importance analysis integrata
+
+**Spazio di ricerca:**
+```
+vix_threshold: [20, 25, 30, 35, 999]
+mfi_threshold: 35-60 (step 5)
+mfi_length:    [10, 14, 20]
+rsi_threshold: 35-60 (step 5)
+adx_threshold: 10-30 (step 5)
+go_threshold:  3-5
+```
+
+**Due modalita:**
+
+1. **Simple** — ottimizzazione single-period (2020-2024):
+```bash
+python optimize_optuna.py --mode ita --trials 300    # ITA (39 tickers)
+python optimize_optuna.py --mode us --trials 300     # US (33 sector-sample stocks)
+```
+
+2. **Walk-Forward** — WFA con Optuna per finestra (8 windows):
+```bash
+python optimize_optuna.py --mode ita --wfa --trials 200    # ITA WFA
+python optimize_optuna.py --mode us --wfa --trials 200     # US WFA
+```
+
+**Output:**
+- `output/optimization_{mode}/optuna_results.csv` (simple)
+- `output/optimization_{mode}/optuna_wfa_results.csv` (WFA)
+- Top 20 trial table con parametri e return
+- Parameter importance ranking
+- WFA: efficiency ratio, parameter stability, overfitting verdict
+
+**US sector sample (33 stocks):** 3 titoli rappresentativi per ciascuno degli 11 settori GICS:
+AAPL/MSFT/NVDA, JPM/GS/BLK, UNH/LLY/JNJ, TSLA/HD/AMZN, GE/CAT/RTX,
+XOM/CVX/COP, NFLX/GOOGL/META, PG/KO/COST, NEE/SO/DUK, LIN/FCX/SHW, PLD/AMT/EQIX
+
+---
 
 ### Prossimi Step di Ottimizzazione
 

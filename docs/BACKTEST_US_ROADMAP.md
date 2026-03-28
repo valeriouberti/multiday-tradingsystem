@@ -129,24 +129,32 @@ Window 8: Train 2022-07→2024-06 | Test 2024-H2
 
 ---
 
-## Phase 5: Optuna Optimization (Optional, faster alternative to Phase 3+4)
+## Phase 5: Optuna Optimization (**IMPLEMENTED** — `optimize_optuna.py`)
 
 **Goal:** Replace brute-force grid search with Bayesian optimization.
 
-**Approach:**
-- Use `optuna` library (add to requirements.txt)
-- Define objective function = avg OOS return from WFA
-- Let Optuna explore parameter space in ~200-300 trials instead of 1,440
-- Built-in pruning: skip unpromising combos early
+**Status:** Implemented in `optimize_optuna.py` (unified script for both ITA and US).
 
-**Implementation:**
-- Create `optimize_optuna_us.py`
-- Objective: run WFA for a given param set, return avg OOS return
-- Optuna handles the search strategy (TPE sampler)
+**Commands:**
+```bash
+# Simple optimization (single-period 2020-2024)
+python optimize_optuna.py --mode us --trials 300
+
+# Walk-Forward Analysis with Optuna
+python optimize_optuna.py --mode us --wfa --trials 200
+```
+
+**Features:**
+- TPE sampler (Tree-structured Parzen Estimator)
+- Wider search space than grid: MFI 35-60, RSI 35-60, ADX 10-30, GO 3-5
+- Uses 33 sector-sample stocks for US (not all 100)
+- Built-in pruning: skips unpromising combos early
+- Parameter importance analysis
+- WFA mode: 8 rolling windows with efficiency ratio and overfitting detection
+
+**Output:** `output/optimization_us/optuna_results.csv` and `optuna_wfa_results.csv`
 
 **Estimated runtime:** 33 × 300 trials × 8 windows = ~79,200 backtests (~45 min)
-
-**Dependency:** `pip install optuna`
 
 ---
 
