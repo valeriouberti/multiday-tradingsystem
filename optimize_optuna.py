@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Optuna-based parameter optimization for ITA and US CFD strategies.
+"""Optuna-based parameter optimization for ITA/US CFD and ETF strategies.
 
 Bayesian optimization (TPE sampler) replaces brute-force grid search.
 Converges in ~200-300 trials instead of 1,080+.
@@ -10,8 +10,10 @@ applies threshold comparisons (~10x faster than recomputing pandas-ta).
 Usage:
     python optimize_optuna.py --mode ita                    # ITA simple
     python optimize_optuna.py --mode us                     # US simple
+    python optimize_optuna.py --mode etf                    # ETF simple
     python optimize_optuna.py --mode ita --wfa              # ITA walk-forward
     python optimize_optuna.py --mode us --wfa               # US walk-forward
+    python optimize_optuna.py --mode etf --wfa              # ETF walk-forward
     python optimize_optuna.py --mode ita --trials 500       # more trials
 """
 
@@ -75,6 +77,11 @@ MODE_CONFIG = {
         "bt_mode": "ita",  # same CFD engine mode (leverage)
         "use_sample": True,  # use optimization_sample from config
     },
+    "etf": {
+        "config_path": "config_etf.yaml",
+        "benchmark": "CSSPX.MI",
+        "bt_mode": "etf",
+    },
 }
 
 # All possible mfi_length values in the search space
@@ -100,6 +107,7 @@ class PrecomputedTicker:
     check_rs: pd.Series       # bool: RS line rising
     vix_aligned: pd.Series    # float: VIX close, ffilled to ticker index
     adx_aligned: pd.Series    # float: ADX(14) on benchmark, ffilled
+    bench_health: pd.Series   # bool: benchmark EMA fast > slow (for ETF gate)
     atr: pd.Series            # float: ATR(14)
     close: pd.Series          # float: close prices
     df_daily: pd.DataFrame    # full OHLCV (needed by engine)
@@ -202,6 +210,16 @@ def _precompute_ticker(
     else:
         adx_aligned = pd.Series(100.0, index=idx)
 
+    # Benchmark EMA health (for ETF gate_bench)
+    bench_ema_fast = strat.get("bench_ema_fast", strat["ema_fast"])
+    bench_ema_slow = strat.get("bench_ema_slow", strat["ema_slow"])
+    if not bench_daily.empty:
+        b_fast = ta.ema(bench_daily["Close"], length=bench_ema_fast)
+        b_slow = ta.ema(bench_daily["Close"], length=bench_ema_slow)
+        bench_health = (b_fast > b_slow).fillna(False).reindex(idx, method="ffill").fillna(False)
+    else:
+        bench_health = pd.Series(True, index=idx)
+
     # ATR
     atr = ta.atr(
         df_daily["High"], df_daily["Low"], df_daily["Close"],
@@ -219,6 +237,7 @@ def _precompute_ticker(
         check_rs=check_rs,
         vix_aligned=vix_aligned,
         adx_aligned=adx_aligned,
+        bench_health=bench_health,
         atr=atr,
         close=df_daily["Close"],
         df_daily=df_daily,
@@ -251,7 +270,7 @@ def _precompute_all(
 # Fast signal + backtest (per trial)
 # =========================================================================
 
-def _build_signals_fast(precomp: PrecomputedTicker, params: dict) -> pd.DataFrame:
+def _build_signals_fast(precomp: PrecomputedTicker, params: dict, bt_mode: str = "ita") -> pd.DataFrame:
     """Apply thresholds to precomputed indicators. ~20x faster than compute_all_signals."""
     idx = precomp.close.index
     signals = pd.DataFrame(index=idx)
@@ -277,13 +296,14 @@ def _build_signals_fast(precomp: PrecomputedTicker, params: dict) -> pd.DataFram
     # Gates (threshold-dependent)
     signals["gate_vix"] = (precomp.vix_aligned < params["vix_threshold"]).fillna(True)
     signals["gate_adx"] = (precomp.adx_aligned >= params["adx_threshold"]).fillna(True)
-    signals["gate_bench"] = True
+    signals["gate_bench"] = precomp.bench_health if bt_mode == "etf" else True
 
     # GO signal
     signals["go"] = (
         (signals["score"] >= params["go_threshold"])
         & signals["gate_vix"]
         & signals["gate_adx"]
+        & signals["gate_bench"]
     )
 
     signals["atr"] = precomp.atr
@@ -313,7 +333,7 @@ def _run_universe_fast(
 
     for i, (ticker, precomp) in enumerate(ticker_precomputed.items()):
         try:
-            signals = _build_signals_fast(precomp, params)
+            signals = _build_signals_fast(precomp, params, bt_mode)
             signals_bt = signals.loc[start:end]
             df_bt = precomp.df_daily.loc[start:end]
             if df_bt.empty or len(df_bt) < 20:
@@ -723,10 +743,11 @@ def _print_wfa_summary(
 ) -> None:
     """Print WFA summary report."""
     console.print("\n" + "=" * 80)
-    console.print(f"[bold]WALK-FORWARD ANALYSIS (Optuna) — {mode.upper()} CFD[/bold]")
+    label = f"{mode.upper()} ETF" if mode == "etf" else f"{mode.upper()} CFD"
+    console.print(f"[bold]WALK-FORWARD ANALYSIS (Optuna) — {label}[/bold]")
     console.print("=" * 80)
 
-    currency = "\u20ac" if mode == "ita" else "$"
+    currency = "$" if mode == "us" else "\u20ac"
 
     table = Table(title="Walk-Forward Results by Window", show_lines=True)
     table.add_column("#", style="dim", justify="right")
@@ -881,11 +902,11 @@ def _save_wfa_csv(window_results: list[WFAWindowResult], mode: str) -> None:
 def main() -> None:
     logging.basicConfig(level=logging.WARNING)
     parser = argparse.ArgumentParser(
-        description="Optuna parameter optimization for ITA/US CFD strategies"
+        description="Optuna parameter optimization for ITA/US CFD and ETF strategies"
     )
     parser.add_argument(
-        "--mode", choices=["ita", "us"], required=True,
-        help="Strategy mode: ita (FTSE MIB) or us (S&P 500)",
+        "--mode", choices=["ita", "us", "etf"], required=True,
+        help="Strategy mode: ita (FTSE MIB), us (S&P 500), or etf (sector ETFs)",
     )
     parser.add_argument(
         "--wfa", action="store_true",

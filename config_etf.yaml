@@ -1,7 +1,11 @@
 tickers:
-- XDW0.MI
-- XDWI.MI
 - XDWD.MI
+- XDW0.MI
+- XDWF.MI
+- XDWI.MI
+- XDWM.MI
+- XDWH.MI
+- DFND.MI
 benchmark: CSSPX.MI
 strategy:
   ema_fast: 20

@@ -8,6 +8,7 @@ equity, drawdown, and probability of ruin.
 Usage:
     python montecarlo.py --mode ita                          # ITA, 10k sims
     python montecarlo.py --mode us                           # US, 10k sims
+    python montecarlo.py --mode etf                          # ETF, 10k sims
     python montecarlo.py --mode ita --simulations 50000      # more sims
     python montecarlo.py --mode us --save-plot               # save histogram
     python montecarlo.py --mode ita --start 2022-01-01       # custom period
@@ -46,6 +47,11 @@ MODE_CONFIG = {
         "benchmark": "SPY",
         "bt_mode": "ita",
         "use_sample": True,
+    },
+    "etf": {
+        "config_path": "config_etf.yaml",
+        "benchmark": "CSSPX.MI",
+        "bt_mode": "etf",
     },
 }
 
@@ -315,8 +321,8 @@ def main() -> None:
         description="Monte Carlo simulation for trade-order sensitivity analysis"
     )
     parser.add_argument(
-        "--mode", choices=["ita", "us"], required=True,
-        help="Strategy mode (ita or us)",
+        "--mode", choices=["ita", "us", "etf"], required=True,
+        help="Strategy mode (ita, us, or etf)",
     )
     parser.add_argument(
         "--simulations", type=int, default=10_000,
