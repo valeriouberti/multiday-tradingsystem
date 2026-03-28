@@ -27,12 +27,11 @@ def is_configured() -> bool:
     return bool(BOT_TOKEN and CHAT_ID)
 
 
-def send_message(text: str, parse_mode: str = "HTML") -> bool:
-    """Send a message to the configured Telegram chat. Returns True on success."""
-    if not is_configured():
-        logger.debug("Telegram not configured, skipping")
-        return False
+TELEGRAM_MAX_LENGTH = 4096
 
+
+def _send_single(text: str, parse_mode: str) -> bool:
+    """Send a single message (must be <= TELEGRAM_MAX_LENGTH)."""
     url = f"https://api.telegram.org/bot{BOT_TOKEN}/sendMessage"
     payload = {
         "chat_id": CHAT_ID,
@@ -46,13 +45,71 @@ def send_message(text: str, parse_mode: str = "HTML") -> bool:
     try:
         with urllib.request.urlopen(req, timeout=10) as resp:
             if resp.status == 200:
-                logger.info("Telegram message sent")
                 return True
             logger.warning("Telegram API returned %d", resp.status)
             return False
     except urllib.error.URLError as e:
         logger.warning("Telegram send failed: %s", e)
         return False
+
+
+def _split_message(text: str, max_len: int = TELEGRAM_MAX_LENGTH) -> list[str]:
+    """Split a long message into chunks that respect Telegram's limit.
+
+    Splits on blank lines (paragraph boundaries) first, then on newlines.
+    """
+    if len(text) <= max_len:
+        return [text]
+
+    chunks: list[str] = []
+    current = ""
+
+    # Split on double-newline (paragraph) boundaries
+    paragraphs = text.split("\n\n")
+    for para in paragraphs:
+        candidate = f"{current}\n\n{para}" if current else para
+        if len(candidate) <= max_len:
+            current = candidate
+        elif not current:
+            # Single paragraph exceeds limit — split on newlines
+            for line in para.split("\n"):
+                line_candidate = f"{current}\n{line}" if current else line
+                if len(line_candidate) <= max_len:
+                    current = line_candidate
+                else:
+                    if current:
+                        chunks.append(current)
+                    current = line[:max_len]
+            pass
+        else:
+            chunks.append(current)
+            current = para
+
+    if current:
+        chunks.append(current)
+
+    return chunks
+
+
+def send_message(text: str, parse_mode: str = "HTML") -> bool:
+    """Send a message to the configured Telegram chat.
+
+    Automatically splits messages exceeding Telegram's 4096 char limit.
+    Returns True if all chunks were sent successfully.
+    """
+    if not is_configured():
+        logger.debug("Telegram not configured, skipping")
+        return False
+
+    chunks = _split_message(text)
+    all_ok = True
+    for i, chunk in enumerate(chunks):
+        ok = _send_single(chunk, parse_mode)
+        if ok:
+            logger.info("Telegram message sent (%d/%d)", i + 1, len(chunks))
+        else:
+            all_ok = False
+    return all_ok
 
 
 def send_ita_report(results: list[dict], config: dict) -> bool:
