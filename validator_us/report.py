@@ -76,6 +76,7 @@ def print_report(results: list[dict], config: dict) -> None:
 
     # --- Main table ---
     table = Table(show_header=True, header_style="bold cyan", expand=True)
+    table.add_column("#", justify="center", no_wrap=True)
     table.add_column("Stock", style="bold", no_wrap=True)
     table.add_column("Score", justify="center", no_wrap=True)
     table.add_column("EMA D", justify="center", no_wrap=True)
@@ -84,6 +85,7 @@ def print_report(results: list[dict], config: dict) -> None:
     table.add_column("RSI", justify="center", no_wrap=True)
     table.add_column("MFI", justify="center", no_wrap=True)
     table.add_column("RS", justify="center", no_wrap=True)
+    table.add_column("RS%", justify="right", no_wrap=True)
     table.add_column("Premkt", justify="right", no_wrap=True)
     table.add_column("Stop", justify="right", no_wrap=True)
     table.add_column("TP1", justify="right", no_wrap=True)
@@ -93,6 +95,7 @@ def print_report(results: list[dict], config: dict) -> None:
     table.add_column("GO?", justify="center", no_wrap=True)
 
     for r in results:
+        rank = r.get("rank", 0)
         checks = r["checks"]
         pm = f"{r['premarket_pct']:+.2f}%"
         pm_text = Text(pm, style="green" if r["premarket_pct"] >= 0 else "red")
@@ -100,8 +103,12 @@ def print_report(results: list[dict], config: dict) -> None:
         tp1_str = f"${r['tp1_price']:.2f}" if r["tp1_price"] > 0 else "N/A"
         chand_str = f"${r['chandelier_stop']:.2f}" if r["chandelier_stop"] > 0 else "N/A"
         size_str = str(r["position_size"]) if r["position_size"] > 0 else "N/A"
+        rs_pct = f"{r.get('rs_value', 0):+.1f}%" if r.get("rs_value") else ""
+        rank_str = Text(str(rank), style="bold green") if rank else Text("")
 
+        row_style = "on grey15" if rank else None
         table.add_row(
+            rank_str,
             r["ticker"],
             f"{r['score']}/{r['max_score']}",
             _check_cell(checks["EMA D"]),
@@ -110,6 +117,7 @@ def print_report(results: list[dict], config: dict) -> None:
             _check_cell(checks["RSI"]),
             _check_cell(checks["MFI"]),
             _check_cell(checks["RS"]),
+            rs_pct,
             pm_text,
             stop_str,
             tp1_str,
@@ -117,6 +125,7 @@ def print_report(results: list[dict], config: dict) -> None:
             size_str,
             r["entry_method"],
             _status_text(r),
+            style=row_style,
         )
 
     console.print(table)
@@ -133,10 +142,11 @@ def print_report(results: list[dict], config: dict) -> None:
     console.print(summary)
     console.print()
 
-    # --- Action plan ---
-    actionable = [r for r in results if r["status"] in ("GO", "WATCH") and r["entry_method"] != "WAIT"]
+    # --- Action plan (top-N only) ---
+    top_n = config["alerts"].get("top_n", 5)
+    actionable = [r for r in results if r.get("rank", 0) > 0 and r["entry_method"] != "WAIT"]
     if actionable:
-        console.print("[bold]FINECO CFD \u2014 Orders to place:[/bold]")
+        console.print(f"[bold]FINECO CFD \u2014 Top {top_n} Orders to place:[/bold]")
         console.print()
         for r in actionable:
             entry = r["entry_method"]
@@ -165,14 +175,21 @@ def print_report(results: list[dict], config: dict) -> None:
                 console.print("  [dim]Window: 09:45+ ET \u2014 entry on recovery from EMA 9-20 zone[/dim]")
             console.print()
 
-    no_entry = [r for r in results if r["status"] in ("GO", "WATCH") and r["entry_method"] == "WAIT"]
+    no_entry = [r for r in results if r.get("rank", 0) > 0 and r["entry_method"] == "WAIT"]
     if no_entry:
         tickers_wait = ", ".join(r["ticker"] for r in no_entry)
-        console.print(f"[dim]{tickers_wait}: no entry setup \u2014 monitor on Fineco[/dim]")
+        console.print(f"[dim]{tickers_wait}: ranked but no entry setup \u2014 monitor on Fineco[/dim]")
         console.print()
 
     if not actionable and not no_entry:
         console.print("[dim]No US stocks actionable today.[/dim]")
+        console.print()
+
+    # Show remaining GO/WATCH outside top-N as a compact list
+    remaining = [r for r in results if r["status"] in ("GO", "WATCH") and r.get("rank", 0) == 0]
+    if remaining:
+        tickers_remaining = ", ".join(f"{r['ticker']}({r['score']})" for r in remaining)
+        console.print(f"[dim]Also GO/WATCH (not in top {top_n}): {tickers_remaining}[/dim]")
         console.print()
 
 
@@ -186,8 +203,8 @@ def save_csv(results: list[dict], config: dict) -> None:
     filepath = os.path.join(csv_dir, filename)
 
     fieldnames = [
-        "Stock", "Score", "EMA D", "EMA W", "MACD", "RSI", "MFI",
-        "RS", "VIX Gate", "ADX Gate",
+        "Rank", "Stock", "Score", "EMA D", "EMA W", "MACD", "RSI", "MFI",
+        "RS", "RS ROC %", "RSI Value", "MFI Value", "VIX Gate", "ADX Gate",
         "Premarket %", "Stop Loss", "TP1", "Chandelier Stop", "Position Size",
         "Entry Method", "Status", "Gate Reasons",
     ]
@@ -198,7 +215,9 @@ def save_csv(results: list[dict], config: dict) -> None:
         for r in results:
             checks = r["checks"]
             gates = r.get("gates", {})
+            rank = r.get("rank", 0)
             writer.writerow({
+                "Rank": rank if rank > 0 else "",
                 "Stock": r["ticker"],
                 "Score": f"{r['score']}/{r['max_score']}",
                 "EMA D": "PASS" if checks["EMA D"]["passed"] else "FAIL",
@@ -209,6 +228,9 @@ def save_csv(results: list[dict], config: dict) -> None:
                 "MFI": f"{'PASS' if checks['MFI']['passed'] else 'FAIL'}"
                        + (f" ({checks['MFI']['display']})" if checks["MFI"]["display"] else ""),
                 "RS": "PASS" if checks["RS"]["passed"] else "FAIL",
+                "RS ROC %": f"{r.get('rs_value', 0):+.2f}",
+                "RSI Value": r.get("rsi_value", ""),
+                "MFI Value": r.get("mfi_value", ""),
                 "VIX Gate": "OK" if gates.get("vix_ok", True) else "HIGH",
                 "ADX Gate": "OK" if gates.get("adx_ok", True) else "RANGE",
                 "Premarket %": f"{r['premarket_pct']:+.2f}%",

@@ -9,9 +9,15 @@ from shared.indicators import (
     detect_entry_method,
     get_atr_stop,
     get_chandelier_stop,
+    get_mfi_value,
+    get_rs_roc_value,
+    get_rsi_value,
     get_tp1_price,
 )
 from shared.position_sizing import get_cfd_position_size as get_position_size
+
+# Entry method priority for ranking (higher = better)
+ENTRY_PRIORITY = {"GAP_UP": 4, "BONE_ZONE": 3, "PULLBACK": 2, "ORB": 1, "WAIT": 0}
 
 
 def score_ticker(ticker: str, cfg: dict, gates: dict) -> dict:
@@ -59,6 +65,11 @@ def score_ticker(ticker: str, cfg: dict, gates: dict) -> dict:
     entry_method = detect_entry_method(df_daily, df_h1, cfg)
     premarket_pct = get_premarket_change(ticker)
 
+    # Numeric values for ranking
+    rs_value = get_rs_roc_value(df_daily, cfg)
+    rsi_value = get_rsi_value(df_daily, cfg)
+    mfi_value = get_mfi_value(df_daily, cfg)
+
     go_thresh = cfg["alerts"]["go_threshold"]
     watch_thresh = cfg["alerts"]["watch_threshold"]
     if score >= go_thresh:
@@ -94,6 +105,9 @@ def score_ticker(ticker: str, cfg: dict, gates: dict) -> dict:
         "entry_method": entry_method,
         "premarket_pct": premarket_pct,
         "status": status,
+        "rs_value": rs_value,
+        "rsi_value": rsi_value,
+        "mfi_value": mfi_value,
     }
 
 
@@ -121,4 +135,39 @@ def _empty_result(ticker: str, cfg: dict, gates: dict) -> dict:
         "entry_method": "WAIT",
         "premarket_pct": 0.0,
         "status": "SKIP",
+        "rs_value": 0.0,
+        "rsi_value": 0.0,
+        "mfi_value": 0.0,
     }
+
+
+def rank_results(results: list[dict], top_n: int = 5) -> list[dict]:
+    """Rank GO/WATCH results and return the top N.
+
+    Ranking criteria (lexicographic):
+      1. Score (descending) — 6/6 beats 5/6
+      2. RS ROC % (descending) — strongest relative momentum vs SPY
+      3. Entry method priority (descending) — active setup beats WAIT
+
+    SKIP results are excluded. All results get a 'rank' field
+    (1-based for top-N, 0 for non-ranked).
+    """
+    actionable = [r for r in results if r["status"] in ("GO", "WATCH")]
+    skips = [r for r in results if r["status"] == "SKIP"]
+
+    actionable.sort(
+        key=lambda r: (
+            r["score"],
+            r.get("rs_value", 0.0),
+            ENTRY_PRIORITY.get(r["entry_method"], 0),
+        ),
+        reverse=True,
+    )
+
+    for i, r in enumerate(actionable):
+        r["rank"] = i + 1 if i < top_n else 0
+
+    for r in skips:
+        r["rank"] = 0
+
+    return actionable[:top_n] + actionable[top_n:] + skips

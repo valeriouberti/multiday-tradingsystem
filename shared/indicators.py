@@ -98,6 +98,53 @@ def check_rs_vs_benchmark(
 
 
 # =========================================================================
+# NUMERIC VALUES (for ranking)
+# =========================================================================
+
+def get_rs_roc_value(ticker_df: pd.DataFrame, cfg: dict) -> float:
+    """Return the numeric RS ROC (%) vs benchmark over the lookback window.
+
+    Positive = outperforming benchmark, higher = stronger relative momentum.
+    Returns 0.0 on error.
+    """
+    benchmark = cfg.get("benchmark", "ETFMIB.MI")
+    roc_days = cfg["strategy"].get("rs_roc_days", 5)
+    try:
+        bench_df = get_daily(benchmark, cfg)
+        if ticker_df.empty or bench_df.empty:
+            return 0.0
+        common_idx = ticker_df.index.intersection(bench_df.index)
+        if len(common_idx) < roc_days + 1:
+            return 0.0
+        ticker_close = ticker_df.loc[common_idx, "Close"]
+        bench_close = bench_df.loc[common_idx, "Close"]
+        rs = ticker_close / bench_close
+        prev = float(rs.iloc[-roc_days - 1])
+        if prev == 0:
+            return 0.0
+        return float((rs.iloc[-1] - prev) / prev * 100)
+    except Exception:
+        return 0.0
+
+
+def get_rsi_value(df: pd.DataFrame, cfg: dict) -> float:
+    """Return the current RSI value (0-100). Returns 0.0 on error."""
+    rsi = ta.rsi(df["Close"], length=cfg["strategy"]["rsi_length"])
+    if rsi is None:
+        return 0.0
+    return round(float(rsi.iloc[-1]), 1)
+
+
+def get_mfi_value(df: pd.DataFrame, cfg: dict) -> float:
+    """Return the current MFI value (0-100). Returns 0.0 on error."""
+    length = cfg["strategy"].get("mfi_length", 14)
+    mfi = ta.mfi(df["High"], df["Low"], df["Close"], df["Volume"], length=length)
+    if mfi is None:
+        return 0.0
+    return round(float(mfi.iloc[-1]), 1)
+
+
+# =========================================================================
 # GATES (common)
 # =========================================================================
 

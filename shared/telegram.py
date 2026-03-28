@@ -342,8 +342,13 @@ def send_etf_report(results: list[dict], config: dict, correlations: dict) -> bo
 # =========================================================================
 
 def send_us_report(results: list[dict], config: dict) -> bool:
-    """Format and send US S&P 500 CFD report to Telegram."""
-    lines = ["\U0001f1fa\U0001f1f8 <b>US S&P 500 CFD Report</b>", ""]
+    """Format and send US S&P 500 CFD report to Telegram.
+
+    Only sends top-N ranked tickers (determined by rank_results in scorer).
+    Remaining GO/WATCH tickers are listed compactly at the bottom.
+    """
+    top_n = config.get("alerts", {}).get("top_n", 5)
+    lines = [f"\U0001f1fa\U0001f1f8 <b>US S&P 500 CFD Report — Top {top_n}</b>", ""]
 
     if results:
         gates = results[0].get("gates", {})
@@ -354,24 +359,20 @@ def send_us_report(results: list[dict], config: dict) -> bool:
         lines.append(f"VIX: {vix} {'\u2705' if vix_ok else '\u274c'} | ADX: {adx} {'\u2705' if adx_ok else '\u274c'}")
         lines.append("")
 
-    status_order = {"GO": 0, "WATCH": 1, "SKIP": 2}
-    sorted_results = sorted(
-        results,
-        key=lambda r: (status_order.get(r["status"], 9), -r["score"]),
-    )
+    ranked = [r for r in results if r.get("rank", 0) > 0]
+    remaining = [r for r in results if r["status"] in ("GO", "WATCH") and r.get("rank", 0) == 0]
 
-    for r in sorted_results:
+    for r in ranked:
         status = r["status"]
-        if status == "SKIP":
-            continue
         icon = {"GO": "\U0001f7e2", "WATCH": "\U0001f7e1"}.get(status, "\u26aa")
         gate_info = ""
         if r.get("gate_reasons"):
             gate_info = f" ({','.join(r['gate_reasons'])})"
 
+        rs_pct = f" | RS: {r.get('rs_value', 0):+.1f}%" if r.get("rs_value") else ""
         lines.append(
-            f"{icon} <b>{r['ticker']}</b> {r['score']}/{r['max_score']} "
-            f"{status}{gate_info}"
+            f"#{r['rank']} {icon} <b>{r['ticker']}</b> {r['score']}/{r['max_score']} "
+            f"{status}{gate_info}{rs_pct}"
         )
         pm = f"{r['premarket_pct']:+.2f}%"
         lines.append(f"   Entry: {r['entry_method']} | Premkt: {pm}")
@@ -388,6 +389,11 @@ def send_us_report(results: list[dict], config: dict) -> bool:
             lines.append(
                 f"   Size: {size} shares (${notional:,.0f} not. / ${margin:,.0f} margin)"
             )
+        lines.append("")
+
+    if remaining:
+        tickers_str = ", ".join(f"{r['ticker']}({r['score']})" for r in remaining)
+        lines.append(f"<i>Also GO/WATCH: {tickers_str}</i>")
         lines.append("")
 
     go = sum(1 for r in results if r["status"] == "GO")
@@ -421,8 +427,8 @@ def _build_ticker_block_us(r: dict, idx: int, config: dict) -> str:
 
 
 def send_us_deepdive_prompt(results: list[dict], config: dict) -> bool:
-    """Build and send US deep-dive Prompt 2 with GO/WATCH tickers pre-filled."""
-    actionable = [r for r in results if r["status"] in ("GO", "WATCH")]
+    """Build and send US deep-dive Prompt 2 with top-N ranked tickers pre-filled."""
+    actionable = [r for r in results if r.get("rank", 0) > 0]
     if not actionable:
         logger.debug("No GO/WATCH US tickers, skipping deep-dive prompt")
         return False

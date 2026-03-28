@@ -8,7 +8,7 @@ from shared.data import prefetch_all
 from shared.indicators import check_adx_regime, check_vix_regime
 from shared.telegram import send_us_report, send_us_deepdive_prompt
 from validator_us.report import print_report, save_csv
-from validator_us.scorer import score_ticker
+from validator_us.scorer import rank_results, score_ticker
 
 logging.basicConfig(
     level=logging.INFO,
@@ -75,6 +75,10 @@ def main():
         logger.info("[%d/%d] Scoring %s vs %s", i, len(tickers), ticker, benchmark)
         result = score_ticker(ticker, config, gates)
         results.append(result)
+
+    # --- Rank and select top N ---
+    top_n = config["alerts"].get("top_n", 5)
+    results = rank_results(results, top_n=top_n)
 
     # --- Output ---
     print_report(results, config)

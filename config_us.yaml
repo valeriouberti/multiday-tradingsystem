@@ -182,6 +182,7 @@ position_sizing:
 alerts:
   go_threshold: 4
   watch_threshold: 3
+  top_n: 5
 session:
   timezone: US/Eastern
   market_open_utc: "14:30"
