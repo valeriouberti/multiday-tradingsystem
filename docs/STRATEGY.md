@@ -387,20 +387,29 @@ Dopo il prompt: aggiorna il Chandelier Stop su Fineco per ogni posizione aperta.
 | 1 | EMA 20 > EMA 50 | Daily | Trend rialzista |
 | 2 | EMA 20 > EMA 50 | Weekly | Trend strutturale |
 | 3 | MACD > Signal | Daily | Momentum in accelerazione |
-| 4 | RSI > 50 | Daily | Forza relativa positiva |
-| 5 | MFI > 50 | Daily | Money Flow Index — flusso istituzionale |
+| 4 | RSI > 45 | Daily | Forza relativa positiva (tuned da 50) |
+| 5 | MFI > 45 | Daily | Money Flow Index — flusso istituzionale (tuned da 50) |
 | 6 | RS vs Benchmark | Daily | Titolo/settore batte il benchmark (20d, 5d ROC) |
 
 ### Gates
 
 | Gate | ITA CFD | ETF | Effetto |
 | :-- | :-- | :-- | :-- |
-| VIX < 25 | ✅ | ✅ | GO → WATCH |
+| VIX < 35 (ITA) / < 25 (ETF) | ✅ | ✅ | GO → WATCH |
 | ADX >= 20 su benchmark | ✅ | ✅ | GO → WATCH |
 | Benchmark Health (EMA20 > EMA50) | — | ✅ | GO → WATCH |
 | Correlazione pairwise < 0.7 | — | ✅ | Dimezza size combinato |
 
-### Score
+### Score (ITA CFD — parametri tuned)
+
+| Score | Gates OK | Azione |
+| :-- | :-- | :-- |
+| 4/6, 5/6 o 6/6 | tutti OK | **GO** — prepara ordini su Fineco |
+| 4/6, 5/6 o 6/6 | almeno 1 FAIL | **WATCH** — gate ha bloccato |
+| 3/6 | qualsiasi | **WATCH** |
+| <= 2/6 | qualsiasi | **SKIP** |
+
+### Score (ETF — parametri originali)
 
 | Score | Gates OK | Azione |
 | :-- | :-- | :-- |
@@ -494,7 +503,7 @@ shares = min(
 
 ## PineScript — TradingView
 
-Indicatore per validazione visiva:
+Indicatore v1.1 con parametri tuned (RSI 45, MFI 45, VIX 35, GO >= 4):
 
 ```
 pinescript/ita_cfd_validator.pine
@@ -569,5 +578,116 @@ VIX: 24.8 ✅ | ADX: 22.0 ✅
 
 - ITA: trigger automatico alle 8:30 CET o manuale da GitHub mobile app
 - ETF: trigger automatico alle 14:00 CET o manuale da GitHub mobile app
-- Input tickers via `workflow_dispatch` (GitHub app → Actions → Run workflow)
+- Input tickers via `--tickers` flag (GitHub app → Actions → Run workflow)
 - Telegram: il Python script invia il report se i secrets sono configurati
+
+---
+
+## Backtester
+
+Motore di backtesting completo per validare la strategia su dati storici.
+
+### Componenti
+
+| Script | Descrizione |
+| :-- | :-- |
+| `backtest.py` | Backtest singolo ticker (`--ticker ISP.MI --start 2023-01-01 --end 2024-12-31`) |
+| `backtest_ftsemib.py` | Backtest tutti i 39 titoli FTSE MIB con report aggregato |
+| `optimize_params.py` | Grid search in-sample (1080 combinazioni su 2020-2024) |
+| `walk_forward.py` | Walk-Forward Analysis (8 finestre rolling, validazione OOS) |
+
+### Trade Lifecycle (simulazione)
+
+```
+GO signal → Entry at Close
+  → Stop Loss: Close - ATR(14) × 1.5
+  → TP1: Close + ATR(14) × 1.5
+     Se TP1 raggiunto: chiudi 50%, sposta stop a breakeven
+  → Chandelier Trailing: Highest(H,22) - ATR(14) × 3.0
+     Ratchet up only (non scende mai)
+  → Exit: stop hit, oppure fine dati
+```
+
+### CFD Margin Accounting
+
+Il backtester gestisce correttamente la leva CFD:
+- Entry cost = notional / leverage (margine, non intero notional)
+- Close proceeds = margine restituito + P&L realizzato
+- Equity = cash + margine bloccato + P&L non realizzato
+
+---
+
+## Ottimizzazione Parametri
+
+### Parametri Tuned (ITA CFD)
+
+Ottimizzati tramite grid search su 2020-2024 (tutti i 39 titoli FTSE MIB):
+
+| Parametro | Originale | Tuned | Motivazione |
+| :-- | :-- | :-- | :-- |
+| `rsi_threshold` | 50 | **45** | Cattura entry nella fase iniziale del trend |
+| `mfi_threshold` | 50 | **45** | Filtro meno restrittivo sui flussi |
+| `vix_threshold` | 25 | **35** | Gate VIX troppo stretto, bloccava trade validi in fear moderata |
+| `go_threshold` | 5 | **4** | Il 5° check spesso in ritardo di 1-2 giorni |
+
+Il set originale si posizionava #476/1080 combinazioni.
+
+### Grid Search (`optimize_params.py`)
+
+Griglia:
+```
+vix_threshold: [20, 25, 30, 35, 999(=OFF)]
+mfi_threshold: [40, 45, 50, 55]
+mfi_length:    [10, 14, 20]
+rsi_threshold: [45, 50, 55]
+adx_threshold: [15, 20, 25]
+go_threshold:  [4, 5]
+```
+
+Totale: 5 × 4 × 3 × 3 × 3 × 2 = **1.080 combinazioni**
+
+Output: `output/optimization/param_optimization.csv` con ranking per avg return.
+
+### Walk-Forward Analysis (`walk_forward.py`)
+
+Il grid search da solo e pericoloso (overfitting). La WFA valida la robustezza:
+
+```
+Finestra 1: Train 2019-01→2020-12 | Test 2021-H1  (OOS)
+Finestra 2: Train 2019-07→2021-06 | Test 2021-H2  (OOS)
+Finestra 3: Train 2020-01→2021-12 | Test 2022-H1  (OOS)
+Finestra 4: Train 2020-07→2022-06 | Test 2022-H2  (OOS)
+Finestra 5: Train 2021-01→2022-12 | Test 2023-H1  (OOS)
+Finestra 6: Train 2021-07→2023-06 | Test 2023-H2  (OOS)
+Finestra 7: Train 2022-01→2023-12 | Test 2024-H1  (OOS)
+Finestra 8: Train 2022-07→2024-06 | Test 2024-H2  (OOS)
+```
+
+**Metriche chiave:**
+- **Efficiency Ratio** = OOS return / IS return (>0.5 = robusto, <0.25 = overfit)
+- **Parameter Stability** = quanto spesso lo stesso valore viene selezionato across windows
+- **Baseline comparison** = WFA vs parametri fissi su tutte le finestre OOS
+
+Output: `output/walk_forward/walk_forward_results.csv`
+
+### Prossimi Step di Ottimizzazione
+
+1. **Monte Carlo Simulation** — Shuffle ordine trade (o resample daily returns con replacement) migliaia di volte. Produce distribuzione di outcome invece di una singola equity curve: intervalli di confidenza, probabilita di ruin, worst-case drawdown realistico.
+
+2. **Parameter Sensitivity Heatmap** — Heatmap 2D di return vs coppie di parametri. Un picco isolato (RSI=45 ottimo, RSI=44/46 pessimi) segnala overfitting. Un plateau (RSI 40-50 tutti simili) conferma robustezza.
+
+3. **Regime-Aware Testing** — Testare la strategia per regime di mercato separatamente:
+   - Bull trending (2021, 2023-2024)
+   - Crash/high-vol (Feb-Mar 2020, 2022 selloff)
+   - Range-bound (choppy 2022)
+   - Valida se i gate VIX/ADX proteggono effettivamente nei regimi sfavorevoli.
+
+4. **Transaction Cost Sensitivity** — Aggiungere costi reali al backtester:
+   - Spread bid-ask (0.1-0.3% su titoli .MI)
+   - Costo overnight CFD (~0.05%/giorno)
+   - Slippage su entry/exit
+   - Una strategia +8% a costi zero puo diventare -2% con friction realistici.
+
+5. **Combinatorial Purged Cross-Validation (CPCV)** — Metodo di Lopez de Prado: genera tutte le possibili combinazioni train/test eliminando overlap temporali. Piu rigoroso statisticamente del k-fold CV per serie temporali finanziarie.
+
+6. **ETF Parameter Tuning** — Applicare lo stesso pipeline (grid search + WFA) alla strategia ETF settoriali con i suoi 4 gate e il benchmark CSSPX.MI.
