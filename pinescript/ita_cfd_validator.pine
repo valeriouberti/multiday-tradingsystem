@@ -1,9 +1,9 @@
 // This Pine Script™ source code is subject to the terms of the Mozilla Public License 2.0
 // https://mozilla.org/MPL/2.0/
-// © Multiday CFD Italian Stock Validator v1.0
+// © Multiday CFD Italian Stock Validator v1.1 (tuned params 2020-2024)
 
 //@version=6
-indicator("ITA CFD Validator v1.0", overlay=true, max_labels_count=50, max_lines_count=50)
+indicator("ITA CFD Validator v1.1", overlay=true, max_labels_count=50, max_lines_count=50)
 
 // =============================================================================
 // INPUTS
@@ -22,9 +22,9 @@ macdSignal  = input.int(9, "MACD Signal", group=grp_macd)
 
 grp_mom     = "Momentum"
 rsiLen      = input.int(14, "RSI Length", group=grp_mom)
-rsiThresh   = input.int(50, "RSI Threshold", group=grp_mom)
+rsiThresh   = input.int(45, "RSI Threshold", group=grp_mom)
 mfiLen      = input.int(14, "MFI Length", group=grp_mom)
-mfiThresh   = input.int(50, "MFI Threshold", group=grp_mom)
+mfiThresh   = input.int(45, "MFI Threshold", group=grp_mom)
 
 grp_rs      = "Relative Strength"
 rsBenchmark = input.symbol("MIL:ETFMIB", "FTSE MIB Benchmark", group=grp_rs)
@@ -38,7 +38,7 @@ chandLook   = input.int(22, "Chandelier Lookback", group=grp_atr)
 chandMult   = input.float(3.0, "Chandelier ATR Mult", step=0.1, group=grp_atr)
 
 grp_gate    = "Gates"
-vixThresh   = input.float(25.0, "VIX Threshold", group=grp_gate)
+vixThresh   = input.float(35.0, "VIX Threshold", group=grp_gate)
 adxLen      = input.int(14, "ADX Length", group=grp_gate)
 adxThresh   = input.float(20.0, "ADX Threshold", group=grp_gate)
 
@@ -77,11 +77,11 @@ check2_emaW = weeklyEmaF > weeklyEmaS
 [macdLine, signalLine, histLine] = ta.macd(close, macdFast, macdSlow, macdSignal)
 check3_macd = macdLine > signalLine
 
-// --- Check 4: RSI > 50 ---
+// --- Check 4: RSI > threshold ---
 rsiVal = ta.rsi(close, rsiLen)
 check4_rsi = rsiVal > rsiThresh
 
-// --- Check 5: MFI > 50 ---
+// --- Check 5: MFI > threshold ---
 mfiVal = ta.mfi(hlc3, mfiLen)
 check5_mfi = mfiVal > mfiThresh
 
@@ -99,11 +99,11 @@ score = (check1_emaD ? 1 : 0) + (check2_emaW ? 1 : 0) + (check3_macd ? 1 : 0) + 
 // 2 GATES
 // =============================================================================
 
-// --- Gate 1: VIX < 25 ---
+// --- Gate 1: VIX < threshold ---
 vixClose = request.security("CBOE:VIX", "D", close)
 gate_vix = vixClose < vixThresh
 
-// --- Gate 2: ADX >= 20 on FTSE MIB ---
+// --- Gate 2: ADX >= threshold on FTSE MIB ---
 // Extract ADX from benchmark via helper function to avoid tuple indexing in request.security
 benchAdxHelper() =>
     [_, _, adxResult] = ta.dmi(adxLen, adxLen)
@@ -116,8 +116,8 @@ gate_adx = benchAdxVal >= adxThresh
 // STATUS: GO / WATCH / SKIP
 // =============================================================================
 
-goThresh    = 5
-watchThresh = 4
+goThresh    = 4
+watchThresh = 3
 
 gatesFailed = (not gate_vix ? 1 : 0) + (not gate_adx ? 1 : 0)
 
@@ -232,7 +232,7 @@ if showTable and barstate.islast
 
     // Score
     table.cell(dash, 0, 1, "Score", text_color=color.gray, text_size=size.small, text_halign=text.align_left)
-    table.cell(dash, 1, 1, str.tostring(score) + "/6", text_color=score >= 5 ? color.green : score >= 4 ? color.orange : color.red, text_size=size.small)
+    table.cell(dash, 1, 1, str.tostring(score) + "/6", text_color=score >= 4 ? color.green : score >= 3 ? color.orange : color.red, text_size=size.small)
 
     // Check 1: EMA D
     table.cell(dash, 0, 2, "EMA D (20>50)", text_color=color.gray, text_size=size.small, text_halign=text.align_left)

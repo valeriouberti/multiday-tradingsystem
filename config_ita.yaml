@@ -50,14 +50,14 @@ strategy:
   macd_slow: 26
   macd_signal: 9
   rsi_length: 14
-  rsi_threshold: 50
+  rsi_threshold: 45
   mfi_length: 14
-  mfi_threshold: 50
+  mfi_threshold: 45
   atr_length: 14
   atr_multiplier: 1.5
   rs_lookback_days: 20
   rs_roc_days: 5
-  vix_threshold: 25
+  vix_threshold: 35
   adx_length: 14
   adx_threshold: 20
   chandelier_lookback: 22
@@ -72,7 +72,7 @@ position_sizing:
   leverage: 5
   max_capital_pct: 0.4
 alerts:
-  go_threshold: 5
+  go_threshold: 4
   watch_threshold: 4
 session:
   timezone: Europe/Rome
