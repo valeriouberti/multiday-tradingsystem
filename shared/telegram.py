@@ -111,6 +111,110 @@ def send_ita_report(results: list[dict], config: dict) -> bool:
     return send_message("\n".join(lines))
 
 
+def _build_ticker_block(r: dict, idx: int, config: dict) -> str:
+    """Build a compact ticker context block for the deep-dive prompt."""
+    checks = r["checks"]
+    passed = [name for name, c in checks.items() if c["passed"]]
+    failed = [name for name, c in checks.items() if not c["passed"]]
+    close = r.get("last_close", 0)
+    leverage = config.get("position_sizing", {}).get("leverage", 5)
+    notional = r["position_size"] * close if close > 0 else 0
+    margin = notional / leverage if leverage > 0 else notional
+
+    return (
+        f"{idx}. {r['ticker']} — {r['status']} ({r['score']}/{r['max_score']})\n"
+        f"   Close: €{close:.2f} | Premkt: {r['premarket_pct']:+.2f}% | "
+        f"Entry: {r['entry_method']}\n"
+        f"   SL: €{r['stop_loss']:.2f} | TP1: €{r['tp1_price']:.2f} | "
+        f"Trail: €{r['chandelier_stop']:.2f}\n"
+        f"   Size: {r['position_size']} shares (€{notional:,.0f} not. / €{margin:,.0f} margin)\n"
+        f"   ✅ {', '.join(passed)}"
+        + (f" | ❌ {', '.join(failed)}" if failed else "")
+    )
+
+
+def send_ita_deepdive_prompt(results: list[dict], config: dict) -> bool:
+    """Build and send Prompt 2 (deep-dive) with GO/WATCH tickers pre-filled.
+
+    Sends two Telegram messages:
+    1. Ticker context block (what the script found)
+    2. The prompt to paste into Perplexity
+    """
+    actionable = [r for r in results if r["status"] in ("GO", "WATCH")]
+    if not actionable:
+        logger.debug("No GO/WATCH tickers, skipping deep-dive prompt")
+        return False
+
+    # --- Message 1: Ticker context ---
+    gates = actionable[0].get("gates", {})
+    vix_val = gates.get("vix_value", 0)
+    adx_val = gates.get("adx_value", 0)
+
+    ticker_blocks = [
+        _build_ticker_block(r, i, config)
+        for i, r in enumerate(actionable, 1)
+    ]
+
+    context_msg = (
+        "📋 <b>Prompt 2 — Deep Dive</b>\n"
+        "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n"
+        f"<b>{len(actionable)} titoli operabili</b> | "
+        f"VIX: {vix_val} | ADX: {adx_val}\n\n"
+        + "\n\n".join(ticker_blocks)
+    )
+    send_message(context_msg)
+
+    # --- Message 2: The prompt (copy-paste to Perplexity) ---
+    # Build compact ticker summary for the prompt itself
+    ticker_summary = []
+    for r in actionable:
+        checks = r["checks"]
+        failed = [name for name, c in checks.items() if not c["passed"]]
+        fail_str = f" (manca: {', '.join(failed)})" if failed else ""
+        ticker_summary.append(
+            f"- {r['ticker']} {r['status']} {r['score']}/6{fail_str} | "
+            f"€{r.get('last_close', 0):.2f} | SL €{r['stop_loss']:.2f}"
+        )
+    tickers_str = "\n".join(ticker_summary)
+
+    prompt = (
+        "⬇️ <b>Copia da qui su Perplexity</b> ⬇️\n"
+        "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n"
+        "Cerca notizie in tempo reale. Sei un analista rischio su azioni "
+        "italiane FTSE MIB.\n\n"
+        "Il mio screening tecnico automatico ha selezionato questi titoli "
+        "per CFD multiday (3-7 sessioni, leva 5:1 Fineco):\n\n"
+        f"{tickers_str}\n\n"
+        "I tecnici sono gia validati dallo script. Tu devi cercare SOLO "
+        "deal-breaker fondamentali che il tecnico non vede.\n\n"
+        "Per OGNI titolo rispondi a queste 3 domande:\n\n"
+        "1. EARNINGS RISK: Pubblica trimestrali nei prossimi 7 giorni di borsa?\n"
+        "   → ⛔ SI (data) / ✅ NO\n"
+        "   Se SI → e un veto automatico, non si entra mai prima degli earnings con CFD.\n\n"
+        "2. CATALYST: Qual e il catalyst attivo nelle ultime 48h per questo titolo? "
+        "Ha gambe multiday (3-7 sessioni) o e gia prezzato?\n"
+        "   → 🟢 ATTIVO (catalyst + perche ha gambe in 1 frase)\n"
+        "   → 🟡 DEBOLE (catalyst in esaurimento)\n"
+        "   → 🔴 NESSUNO (no catalyst o gia prezzato)\n\n"
+        "3. EVENTO KILLER prossime 48h: C'e un evento specifico (BCE, asta BTP, "
+        "dato macro, ex-dividendo, scadenza tecnica) che potrebbe invertire "
+        "questo titolo prima del mio TP1?\n"
+        "   → ⚠️ SI (evento + data) / ✅ NO\n\n"
+        "OUTPUT (rigoroso, una riga per titolo + verdetto):\n\n"
+        "[ticker.MI] | ⛔/✅ Earnings | 🟢/🟡/🔴 Catalyst | ⚠️/✅ Evento\n"
+        "→ ENTRY / WAIT / SKIP + motivo in max 10 parole\n\n"
+        "REGOLE:\n"
+        "- ⛔ Earnings = SKIP automatico, non serve altro\n"
+        "- 🔴 Nessun catalyst + ⚠️ Evento = SKIP\n"
+        "- 🟡 Catalyst debole = WAIT (monitorare, non entrare oggi)\n"
+        "- 🟢 Catalyst + ✅ No evento = ENTRY\n"
+        "- Per bancari (ISP, UCG, BPE, FBK, MB): aggiungi nota su spread "
+        "BTP-Bund se in allargamento >5bp oggi"
+    )
+
+    return send_message(prompt)
+
+
 def send_etf_report(results: list[dict], config: dict, correlations: dict) -> bool:
     """Format and send ETF report to Telegram."""
     lines = ["\U0001f4ca <b>ETF Report</b>", ""]

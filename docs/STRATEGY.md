@@ -71,106 +71,99 @@ VIX futures: [value] | S&P futures: [+/- %] | EUR/USD: [level]
 
 ---
 
-### 08:00 — ITA CFD: Prompt 1 + 2 + Script (10 min)
+### 08:00 — ITA CFD: Prompt 1 + Script + Prompt 2 auto (10 min)
 
-> Tutto in sequenza rapida. I prompt sono schedulati su Perplexity.
+> Flusso ottimizzato: Prompt 1 per contesto → Script scansiona tutti i 40 titoli →
+> Prompt 2 inviato automaticamente su Telegram con i ticker GO/WATCH.
 
-#### PROMPT 1 ITA: Selezione Titoli (schedulato)
+#### PROMPT 1 ITA: Market Context + Catalyst (schedulato su Perplexity)
 
-```
-Agisci come analista istituzionale specializzato in azioni italiane
-large-cap (FTSE MIB).
-
-Cerca le ultime notizie di mercato in tempo reale e analizza Borsa
-Italiana per la sessione di OGGI.
-
-CONTESTO: Faccio trading su azioni italiane large-cap come CFD su Fineco
-con leva 5:1. Il mio benchmark e il FTSE MIB. Capitale: €1.000.
-Mantengo le posizioni per 3-7 sessioni.
-
-COMPITO: Identifica i 3 titoli italiani piu forti per uno swing trade
-multiday basandoti sui catalyst delle ultime 24-48 ore.
-
-Catalyst validi:
-- Decisioni BCE (tassi, conferenza stampa — impatto forte su bancari)
-- Politica governo italiano (spesa difesa, politica energetica, infrastrutture)
-- Trimestrali sopra/sotto le attese dei componenti FTSE MIB
-- Rotazione settoriale nei mercati europei
-- Operazioni M&A che coinvolgono aziende italiane
-- Cambiamenti normativi UE con impatto sull'Italia
-- Movimenti materie prime (petrolio → ENI/TEN, rame → industriali)
-- Movimenti EUR/USD che amplificano titoli export italiani
-- Movimenti spread BTP-Bund (impatto su bancari)
-- Sorprese su PIL/PMI Italia
-
-Per OGNI titolo fornisci:
-- Il catalyst specifico (con fonte e data)
-- Perche ha gambe per piu giorni (non ancora prezzato)
-
-REGOLE RIGIDE:
-- Solo componenti FTSE MIB (liquidi, CFD disponibili su Fineco)
-- ESCLUDI titoli che pubblicano trimestrali nei prossimi 7 giorni
-- ESCLUDI titoli in calo >2% nel premarket
-- Preferisci titoli con forza relativa positiva vs FTSE MIB su 5 sessioni
-- Considera la direzione dello spread BTP-Bund per i bancari
-- Ordina per convinzione: TITOLO 1 = massima convinzione
-
-FORMATO OUTPUT (rigoroso):
-
-## TITOLO 1: [ticker.MI] — [Nome Azienda]
-Catalyst: [1-2 frasi, cosa e successo e perche ha gambe multiday]
-RS vs FTSE MIB (5gg): [piu forte / piu debole / flat]
-Contesto settoriale: [1 frase]
-
-## TITOLO 2: [stesso formato]
-## TITOLO 3: [stesso formato]
-
-MACRO VETO: Segnala qualsiasi evento BCE/UE oggi che rende TUTTE le
-entry rischiose.
-```
-
-#### PROMPT 2 ITA: Deep Dive (schedulato)
+> Non serve piu selezionare 3 titoli. Lo script scansiona tutti i 40 FTSE MIB.
+> Prompt 1 serve solo per contesto macro e catalyst attivi.
 
 ```
-Sei un analista istituzionale che copre azioni italiane.
+Agisci come analista istituzionale su Borsa Italiana / FTSE MIB.
+Cerca notizie in tempo reale. Oggi e [DATA].
 
-Ho intenzione di aprire posizioni CFD multiday (3-7 sessioni, leva 5:1)
-su i precedenti titoli italiani:
+CONTESTO: Faccio swing trading CFD (3-7 sessioni, leva 5:1 Fineco)
+su tutti i 40 titoli FTSE MIB. Uno script Python seleziona automaticamente
+i titoli con segnali tecnici positivi. Ho bisogno di contesto macro
+e catalyst per validare i segnali.
 
-Per OGNI titolo, esegui una valutazione rapida del rischio:
+COMPITO: Fammi un briefing pre-market in 3 sezioni.
 
-1. RISCHIO TRIMESTRALI: Pubblicazione utili nei prossimi 10 giorni?
-   → Segnala come ⛔ RISCHIO TRIMESTRALE o ✅ OK
+1. MACRO ITALIA & EU (oggi e prossime 48h):
+   - Eventi BCE, aste BTP, PMI, CPI, PIL
+   - Spread BTP-Bund: livello e direzione
+   - Futures FTSE MIB / Euro Stoxx 50: direzione
+   - MACRO VETO: c'e un evento oggi che rende TUTTE le entry rischiose?
+     Se si → ⚠️ MACRO VETO DAY (specifica quale)
 
-2. SENSIBILITA MACRO ITALIA: Prossima riunione BCE, PMI Italia, asta BTP
-   che potrebbe invertire il titolo? Quante sessioni mancano?
-   → 🟢 LIBERO (>5 sessioni) / 🟡 VICINO (2-5) / 🔴 IMMINENTE (<2)
+2. CATALYST ATTIVI (ultime 24-48h con gambe multiday):
+   Elenca SOLO catalyst concreti (con fonte e data) che muovono titoli FTSE MIB:
+   - Trimestrali sopra/sotto attese (quali titoli)
+   - Decisioni governo (difesa, energia, infrastrutture)
+   - M&A, cambi normativi UE, rotazione settoriale
+   - Commodity (petrolio → ENI/TEN, rame → industriali)
+   - EUR/USD → impatto export
+   - Spread BTP-Bund → impatto bancari
 
-3. SPREAD BTP-BUND: Livello attuale e direzione.
-   Per bancari (ISP, UCG, BAMI): spread in allargamento = negativo.
-   → 🟢 IN RESTRINGIMENTO / 🔴 IN ALLARGAMENTO / ➡️ STABILE
+   Per ogni catalyst:
+   [ticker.MI] | Catalyst: [1 frase] | Gambe: [perche non ancora prezzato]
 
-4. FLUSSI ISTITUZIONALI: Acquisti/vendite insider recenti, block trade
-   rilevanti o comunicazioni Consob negli ultimi 5 giorni?
-   → 🟢 ACQUISTO IST / 🔴 VENDITA IST / ➡️ NEUTRALE
+3. RISK FLAGS:
+   - Titoli FTSE MIB che pubblicano trimestrali nei prossimi 7 giorni
+   - Titoli in calo >2% nel premarket
+   - Settori a rischio per eventi imminenti
 
-5. SHORT INTEREST: Posizioni short significative (registro Consob)?
-   → ⚠️ SHORT ELEVATO o ✅ NORMALE
-
-FORMATO OUTPUT (rigoroso, una riga per titolo):
-[ticker.MI] | ⛔/✅ Trimestrali | 🟢/🟡/🔴 Macro | 🟢/🔴/➡️ BTP | 🟢/🔴/➡️ Ist | ⚠️/✅ Short
+FORMATO: Sii conciso. Bullet point. No filler.
 ```
 
-#### 08:30 — Script ITA
-
-Aggiorna `config_ita.yaml` con i 3 ticker, poi:
+#### 08:30 — Script ITA (automatico)
 
 ```bash
-python main_ita.py
+python main_ita.py    # scansiona tutti i 40 titoli FTSE MIB
 ```
 
-→ Se GO: prepara ordini su Fineco per le 09:00.
-→ Se WATCH/SKIP: non operare.
+Lo script:
+1. Scansiona tutti i 40 titoli nel config
+2. Calcola i 6 check + 2 gate per ciascuno
+3. Invia il report su Telegram (GO / WATCH / SKIP)
+4. **Invia automaticamente il Prompt 2 su Telegram** con i ticker GO/WATCH pre-compilati
+
+→ Se GO: leggi Prompt 2 su Telegram, copialo su Perplexity, poi prepara ordini Fineco.
+→ Se nessun GO/WATCH: niente da fare, lo script non invia Prompt 2.
+
+#### PROMPT 2 ITA: Deep Dive (auto-generato dallo script)
+
+> **Non serve piu scriverlo a mano.** Lo script lo compone con i ticker esatti
+> e lo invia su Telegram in 2 messaggi. Basta copiare il secondo su Perplexity.
+
+**Messaggio 1 (contesto):** Riepilogo tecnico per ogni ticker GO/WATCH:
+- Score, check passati/falliti, entry method, premarket %
+- Stop loss, TP1, chandelier stop
+- Size, notional, margin
+
+**Messaggio 2 (il prompt da copiare):** Chiede a Perplexity solo 3 domande
+focalizzate sui deal-breaker che il tecnico non vede:
+
+| # | Domanda | Logica |
+| :-- | :-- | :-- |
+| 1 | **Earnings Risk** | Trimestrali nei prossimi 7gg? ⛔ = veto automatico |
+| 2 | **Catalyst** | C'e un catalyst attivo 48h con gambe multiday? |
+| 3 | **Evento Killer** | Evento specifico che inverte il titolo prima del TP1? |
+
+**Regole di decisione integrate nel prompt:**
+- ⛔ Earnings → SKIP automatico
+- 🔴 No catalyst + ⚠️ Evento → SKIP
+- 🟡 Catalyst debole → WAIT
+- 🟢 Catalyst attivo + ✅ No evento → ENTRY
+- Per bancari: nota su spread BTP-Bund se in allargamento
+
+> **Perche solo 3 domande?** Le vecchie 6 domande (short interest, flussi
+> istituzionali, ecc.) producevano rumore. Per un hold 3-7 giorni, i veri
+> deal-breaker sono: earnings (veto binario), catalyst (il "perche" del trade),
+> evento imminente (il rischio concreto). Il resto e noise.
 
 ---
 
@@ -365,8 +358,9 @@ Dopo il prompt: aggiorna il Chandelier Stop su Fineco per ogni posizione aperta.
 | :-- | :-- | :-- | :-- |
 | **07:30** | Entrambe | Macro veto | 2 min |
 | **07:30** | ETF | Prompt 0 — overnight check | 3 min |
-| **08:00** | ITA CFD | Prompt 1 + 2 (schedulati) | 5 min |
-| **08:30** | ITA CFD | `python main_ita.py` + aggiorna config | 2 min |
+| **08:00** | ITA CFD | Prompt 1 — market context (Perplexity) | 3 min |
+| **08:30** | ITA CFD | `python main_ita.py` → report + Prompt 2 auto su Telegram | 2 min |
+| **08:35** | ITA CFD | Copia Prompt 2 da Telegram su Perplexity → deep dive | 3 min |
 | **09:00** | ITA CFD | Entry su Fineco (GAP_UP/PB/ORB/BZ) | 5 min |
 | **13:00** | ETF | Prompt 1 + 2 (schedulati, pausa pranzo) | 8 min |
 | **13:20** | ETF | `python main_etf.py` + aggiorna config | 2 min |
@@ -374,7 +368,7 @@ Dopo il prompt: aggiorna il Chandelier Stop su Fineco per ogni posizione aperta.
 | **17:00** | Entrambe | Deadline — no entry dopo | 0 min |
 | **22:00** | Entrambe | Prompt 3 — exit review + aggiorna Trail | 10 min |
 
-**Tempo totale: ~40 minuti/giorno**
+**Tempo totale: ~35 minuti/giorno**
 
 ---
 
