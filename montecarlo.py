@@ -24,7 +24,12 @@ import yaml
 from rich.console import Console
 from rich.table import Table
 
-from backtester.data import fetch_historical, fetch_weekly_historical, warmup_start
+from backtester.data import (
+    fetch_historical,
+    fetch_weekly_historical,
+    prefetch_historical,
+    warmup_start,
+)
 from backtester.engine import run_backtest
 from backtester.signals import compute_all_signals
 
@@ -60,6 +65,11 @@ def collect_trades(
 ) -> list[float]:
     """Run backtest across universe and collect all trade PnLs."""
     ws = warmup_start(start, extra_bars=100)
+
+    # Batch-prefetch all tickers + benchmark + VIX in 2 HTTP calls (daily + weekly)
+    # with disk cache so repeated runs skip downloads entirely
+    all_symbols = list(dict.fromkeys(list(tickers) + [benchmark, "^VIX"]))
+    prefetch_historical(all_symbols, ws, end)
 
     bench_daily = fetch_historical(benchmark, ws, end)
     vix_daily = fetch_historical("^VIX", ws, end)

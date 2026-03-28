@@ -4,6 +4,7 @@ import time
 
 import yaml
 
+from shared.data import prefetch_all
 from shared.indicators import check_adx_regime, check_vix_regime
 from shared.telegram import send_us_report, send_us_deepdive_prompt
 from validator_us.report import print_report, save_csv
@@ -54,6 +55,9 @@ def main():
         len(tickers), benchmark,
     )
     start = time.time()
+
+    # --- Batch-download all data upfront (1-3 HTTP calls instead of N*3) ---
+    prefetch_all(tickers, config)
 
     # --- Compute gates (shared across all tickers) ---
     vix_ok, vix_value = check_vix_regime(config)
