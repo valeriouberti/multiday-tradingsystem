@@ -141,12 +141,12 @@ def print_report(results: list[dict], config: dict, correlations: dict) -> None:
     console.print(summary)
     console.print()
 
-    # --- Fineco action plan ---
+    # --- Broker action plan ---
     go_etfs = [r for r in results if r["status"] == "GO"]
     watch_etfs = [r for r in results if r["status"] == "WATCH"]
 
     if go_etfs:
-        console.print("[bold]FINECO \u2014 Ordini da impostare (buy a mercato 14:30-16:30 CET):[/bold]")
+        console.print("[bold]ETF \u2014 Ordini da impostare (buy a mercato 14:30-16:30 CET):[/bold]")
         console.print()
         for r in go_etfs:
             console.print(f"[bold green]{r['ticker']} \u2014 BUY[/bold green]")

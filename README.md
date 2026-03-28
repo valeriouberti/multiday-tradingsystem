@@ -1,6 +1,6 @@
 # Multiday Trading System — ITA CFD + US CFD + ETF Settoriali
 
-Three swing trading strategies on **Fineco**, validated with Python technical screening
+Three swing trading strategies on **broker**, validated with Python technical screening
 and AI-driven fundamental analysis (Perplexity Pro). Holding period: 3-7 sessions.
 
 | Strategy | Instrument | Leverage | Capital | Benchmark |
@@ -174,14 +174,14 @@ project/
 │   └── telegram.py         ← Telegram notifications
 ├── validator_ita/
 │   ├── scorer.py           ← 6 checks + 2 gates scorer
-│   └── report.py           ← Rich table + CSV (EUR, Fineco CFD)
+│   └── report.py           ← Rich table + CSV (EUR, broker CFD)
 ├── validator_us/
 │   ├── scorer.py           ← 6 checks + 2 gates scorer
-│   └── report.py           ← Rich table + CSV (USD, Fineco CFD)
+│   └── report.py           ← Rich table + CSV (USD, broker CFD)
 ├── validator_etf/
 │   ├── indicators.py       ← ETF-specific: bench health + correlations
 │   ├── scorer.py           ← 6 checks + 4 gates scorer
-│   └── report.py           ← Rich table + CSV (EUR, Fineco cash)
+│   └── report.py           ← Rich table + CSV (EUR, broker cash)
 ├── backtester/
 │   ├── data.py             ← Historical data fetching with warmup
 │   ├── signals.py          ← Vectorized signal generation

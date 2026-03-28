@@ -146,7 +146,7 @@ def print_report(results: list[dict], config: dict) -> None:
     top_n = config["alerts"].get("top_n", 5)
     actionable = [r for r in results if r.get("rank", 0) > 0 and r["entry_method"] != "WAIT"]
     if actionable:
-        console.print(f"[bold]FINECO CFD \u2014 Top {top_n} Orders to place:[/bold]")
+        console.print(f"[bold]CFD \u2014 Top {top_n} Orders to place:[/bold]")
         console.print()
         for r in actionable:
             entry = r["entry_method"]
@@ -178,7 +178,7 @@ def print_report(results: list[dict], config: dict) -> None:
     no_entry = [r for r in results if r.get("rank", 0) > 0 and r["entry_method"] == "WAIT"]
     if no_entry:
         tickers_wait = ", ".join(r["ticker"] for r in no_entry)
-        console.print(f"[dim]{tickers_wait}: ranked but no entry setup \u2014 monitor on Fineco[/dim]")
+        console.print(f"[dim]{tickers_wait}: ranked but no entry setup \u2014 monitor on broker[/dim]")
         console.print()
 
     if not actionable and not no_entry:

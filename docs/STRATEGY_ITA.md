@@ -1,6 +1,6 @@
 # ITA CFD Strategy — Prompts & Parameters
 
-> CFD su azioni FTSE MIB via Fineco. Leva 5:1 ESMA. Capitale: €1.000. Benchmark: ETFMIB.MI.
+> CFD su azioni FTSE MIB via broker. Leva 5:1 ESMA. Capitale: €1.000. Benchmark: ETFMIB.MI.
 
 ---
 
@@ -14,7 +14,7 @@
 Agisci come analista istituzionale su Borsa Italiana / FTSE MIB.
 Cerca notizie in tempo reale. Oggi e [DATA].
 
-CONTESTO: Faccio swing trading CFD (3-7 sessioni, leva 5:1 Fineco)
+CONTESTO: Faccio swing trading CFD (3-7 sessioni, leva 5:1 broker)
 su tutti i 40 titoli FTSE MIB. Uno script Python seleziona automaticamente
 i titoli con segnali tecnici positivi. Ho bisogno di contesto macro
 e catalyst per validare i segnali.
@@ -82,7 +82,7 @@ Lo script:
 - Catalyst attivo + No evento → ENTRY
 - Per bancari: nota su spread BTP-Bund se in allargamento
 
-### 09:00 — ITA CFD Entry (Fineco app)
+### 09:00 — ITA CFD Entry (broker app)
 
 | Entry Method | Finestra | Condizione |
 | :-- | :-- | :-- |
@@ -98,7 +98,7 @@ Lo script:
 
 | Score | Gates OK | Azione |
 | :-- | :-- | :-- |
-| >= 3/6 | tutti OK | **GO** — prepara ordini su Fineco |
+| >= 3/6 | tutti OK | **GO** — prepara ordini su broker |
 | >= 3/6 | almeno 1 FAIL | **WATCH** — gate ha bloccato |
 | 2/6 | qualsiasi | **WATCH** |
 | <= 1/6 | qualsiasi | **SKIP** |

@@ -2,7 +2,7 @@
 
 ## Project Purpose
 Python tool that validates stocks and sector ETFs against technical indicators before entry.
-Three strategies: ITA CFD (FTSE MIB via Fineco CFD), US CFD (S&P 500 via Fineco CFD),
+Three strategies: ITA CFD (FTSE MIB via broker CFD), US CFD (S&P 500 via broker CFD),
 and ETF (sector ETFs on Borsa Italiana, cash). Designed for multiday swing trading (3-7 sessions).
 
 ## Architecture
@@ -25,16 +25,16 @@ project/
 ├── validator_ita/
 │   ├── __init__.py
 │   ├── scorer.py           ← 6 checks + 2 gates scorer
-│   └── report.py           ← Rich table + CSV (EUR, Fineco CFD format)
+│   └── report.py           ← Rich table + CSV (EUR, broker CFD format)
 ├── validator_us/
 │   ├── __init__.py
 │   ├── scorer.py           ← 6 checks + 2 gates scorer (benchmark: SPY)
-│   └── report.py           ← Rich table + CSV (USD, Fineco CFD format)
+│   └── report.py           ← Rich table + CSV (USD, broker CFD format)
 ├── validator_etf/
 │   ├── __init__.py
 │   ├── indicators.py       ← ETF-specific: bench health + correlations
 │   ├── scorer.py           ← 6 checks + 4 gates scorer
-│   └── report.py           ← Rich table + CSV (EUR, Fineco cash format)
+│   └── report.py           ← Rich table + CSV (EUR, broker cash format)
 ├── backtester/
 │   ├── __init__.py
 │   ├── data.py             ← Historical data fetching with warmup buffer

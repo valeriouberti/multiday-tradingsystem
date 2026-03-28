@@ -1,6 +1,6 @@
 # US S&P 500 CFD Strategy — Prompts & Parameters
 
-> CFD su azioni S&P 500 via Fineco. Leva 5:1 ESMA. Capitale: $1.000. Benchmark: SPY.
+> CFD su azioni S&P 500 via broker. Leva 5:1 ESMA. Capitale: $1.000. Benchmark: SPY.
 
 ---
 
@@ -14,7 +14,7 @@
 Act as an institutional equity strategist covering US large-cap stocks
 (S&P 500). Search real-time news. Today is [DATE].
 
-CONTEXT: I swing trade US large-cap stocks as CFDs via Fineco (5:1 ESMA
+CONTEXT: I swing trade US large-cap stocks as CFDs via broker (5:1 ESMA
 leverage, $1,000 capital, 3-7 session holding period). An automated
 Python screener scans all 100 stocks technically — I need macro context
 and active catalysts to validate the signals.
@@ -83,7 +83,7 @@ Lo script:
 - Per rate-sensitive (bancari, REIT, utilities): nota su 10Y yield move >5bp
 - Per mega-cap tech (AAPL, MSFT, NVDA, META, GOOGL, AMZN): nota su antitrust / AI regulation
 
-### 15:30 — US CFD Entry (Fineco app)
+### 15:30 — US CFD Entry (broker app)
 
 > US market apre alle 15:30 CET. Entry nella prima mezz'ora.
 
@@ -101,7 +101,7 @@ Lo script:
 
 | Score | Gates OK | Azione |
 | :-- | :-- | :-- |
-| >= 4/6 | tutti OK | **GO** — prepara ordini su Fineco |
+| >= 4/6 | tutti OK | **GO** — prepara ordini su broker |
 | >= 4/6 | almeno 1 FAIL | **WATCH** — gate ha bloccato |
 | 3/6 | qualsiasi | **WATCH** |
 | <= 2/6 | qualsiasi | **SKIP** |

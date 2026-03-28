@@ -1,6 +1,6 @@
 # ETF Settoriali Strategy — Prompts & Parameters
 
-> Cash ETF settoriali su Borsa Italiana via Fineco. No leva. Capitale: €4.000. Benchmark: CSSPX.MI.
+> Cash ETF settoriali su Borsa Italiana via broker. No leva. Capitale: €4.000. Benchmark: CSSPX.MI.
 
 ---
 
@@ -50,7 +50,7 @@ Search for the latest real-time market news and analyze the global equity
 market for TODAY's session.
 
 CONTEXT: I trade sector ETFs listed on Borsa Italiana (Milan) in EUR via
-Fineco (cash, no leverage). These ETFs track global/US sector indices.
+broker (cash, no leverage). These ETFs track global/US sector indices.
 My benchmark is CSSPX.MI (iShares Core S&P 500 on Borsa Italiana).
 
 TASK: Identify the 3 strongest equity SECTORS for a multiday swing trade
@@ -149,7 +149,7 @@ Aggiorna `config_etf.yaml` con i 3 ticker, poi:
 python main_etf.py
 ```
 
-### 14:30-16:30 — ETF Entry (Fineco app)
+### 14:30-16:30 — ETF Entry (broker app)
 
 Se lo script dice **GO**, compra a mercato. Non serve cercare setup specifici:
 senza dati real-time ETF, il pomeriggio e la finestra piu sicura (spread stretti,
@@ -161,7 +161,7 @@ US open alle 15:30 conferma il move).
 
 | Score | Gates OK | Azione |
 | :-- | :-- | :-- |
-| 5/6 o 6/6 | tutti OK | **GO** — prepara ordini su Fineco |
+| 5/6 o 6/6 | tutti OK | **GO** — prepara ordini su broker |
 | 5/6 o 6/6 | almeno 1 FAIL | **WATCH** — gate ha bloccato |
 | 4/6 | qualsiasi | **WATCH** |
 | <= 3/6 | qualsiasi | **SKIP** |

@@ -133,10 +133,10 @@ def print_report(results: list[dict], config: dict) -> None:
     console.print(summary)
     console.print()
 
-    # --- Fineco CFD action plan ---
+    # --- Broker CFD action plan ---
     actionable = [r for r in results if r["status"] in ("GO", "WATCH") and r["entry_method"] != "WAIT"]
     if actionable:
-        console.print("[bold]FINECO CFD — Ordini da impostare:[/bold]")
+        console.print("[bold]CFD — Ordini da impostare:[/bold]")
         console.print()
         for r in actionable:
             entry = r["entry_method"]
@@ -168,7 +168,7 @@ def print_report(results: list[dict], config: dict) -> None:
     no_entry = [r for r in results if r["status"] in ("GO", "WATCH") and r["entry_method"] == "WAIT"]
     if no_entry:
         tickers_wait = ", ".join(r["ticker"] for r in no_entry)
-        console.print(f"[dim]{tickers_wait}: nessun setup entry \u2014 monitorare su Fineco[/dim]")
+        console.print(f"[dim]{tickers_wait}: nessun setup entry \u2014 monitorare su broker[/dim]")
         console.print()
 
     if not actionable and not no_entry:

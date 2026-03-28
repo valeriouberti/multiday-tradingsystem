@@ -1,6 +1,6 @@
 # Multiday Trading System — Overview
 
-> Tre strategie via **Fineco**. Selezione titoli automatica (screening tecnico Python)
+> Tre strategie via **broker**. Selezione titoli automatica (screening tecnico Python)
 > + validazione fondamentale via AI (Perplexity Pro).
 > Holding period: 3-7 sessioni.
 >
@@ -27,14 +27,14 @@
 | **08:00** | ITA CFD | Prompt 1 — market context ITA (Perplexity) | 3 min |
 | **08:30** | ITA CFD | `python main_ita.py` → report + Prompt 2 auto | 2 min |
 | **08:35** | ITA CFD | Copia Prompt 2 da Telegram su Perplexity → deep dive | 3 min |
-| **09:00** | ITA CFD | Entry su Fineco (GAP_UP/PB/ORB/BZ) | 5 min |
+| **09:00** | ITA CFD | Entry su broker (GAP_UP/PB/ORB/BZ) | 5 min |
 | **13:00** | US CFD | Prompt 1 — market context US (Perplexity) | 3 min |
 | **13:15** | US CFD | `python main_us.py` → report + Prompt 2 auto | 3 min |
 | **13:20** | US CFD | Copia Prompt 2 da Telegram su Perplexity → deep dive | 3 min |
 | **13:30** | ETF | Prompt 1 + 2 (schedulati, pausa pranzo) | 8 min |
 | **13:45** | ETF | `python main_etf.py` + aggiorna config | 2 min |
-| **14:30-16:30** | ETF | Entry su Fineco (buy a mercato) | 5 min |
-| **15:30** | US CFD | Entry su Fineco (GAP_UP/PB/ORB/BZ) | 5 min |
+| **14:30-16:30** | ETF | Entry su broker (buy a mercato) | 5 min |
+| **15:30** | US CFD | Entry su broker (GAP_UP/PB/ORB/BZ) | 5 min |
 | **17:00** | ITA CFD | Deadline ITA — no entry dopo | 0 min |
 | **20:00** | US CFD | Deadline US — no new entry | 0 min |
 | **22:00** | Tutte | Prompt 3 — exit review + aggiorna Trail | 10 min |
@@ -59,13 +59,13 @@ Controlla [Investing.com](https://investing.com/economic-calendar).
 ```
 Ho posizioni aperte su Borsa Italiana:
 
-AZIONI ITA (CFD Fineco):
+AZIONI ITA (CFD broker):
 [lista ticker.MI attivi con data entry e P&L %]
 
-US S&P 500 (CFD Fineco):
+US S&P 500 (CFD broker):
 [lista ticker attivi con data entry e P&L %]
 
-ETF SETTORIALI (cash Fineco):
+ETF SETTORIALI (cash broker):
 [lista ticker.MI attivi con data entry e P&L %]
 
 Cerca notizie nelle ultime 8 ore che possano invalidare i catalyst.
