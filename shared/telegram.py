@@ -278,3 +278,158 @@ def send_etf_report(results: list[dict], config: dict, correlations: dict) -> bo
     lines.append(f"<b>{go} GO | {watch} WATCH | {skip} SKIP</b>")
 
     return send_message("\n".join(lines))
+
+
+# =========================================================================
+# US S&P 500 CFD
+# =========================================================================
+
+def send_us_report(results: list[dict], config: dict) -> bool:
+    """Format and send US S&P 500 CFD report to Telegram."""
+    lines = ["\U0001f1fa\U0001f1f8 <b>US S&P 500 CFD Report</b>", ""]
+
+    if results:
+        gates = results[0].get("gates", {})
+        vix = gates.get("vix_value", 0)
+        vix_ok = gates.get("vix_ok", True)
+        adx = gates.get("adx_value", 0)
+        adx_ok = gates.get("adx_ok", True)
+        lines.append(f"VIX: {vix} {'\u2705' if vix_ok else '\u274c'} | ADX: {adx} {'\u2705' if adx_ok else '\u274c'}")
+        lines.append("")
+
+    status_order = {"GO": 0, "WATCH": 1, "SKIP": 2}
+    sorted_results = sorted(
+        results,
+        key=lambda r: (status_order.get(r["status"], 9), -r["score"]),
+    )
+
+    for r in sorted_results:
+        status = r["status"]
+        if status == "SKIP":
+            continue
+        icon = {"GO": "\U0001f7e2", "WATCH": "\U0001f7e1"}.get(status, "\u26aa")
+        gate_info = ""
+        if r.get("gate_reasons"):
+            gate_info = f" ({','.join(r['gate_reasons'])})"
+
+        lines.append(
+            f"{icon} <b>{r['ticker']}</b> {r['score']}/{r['max_score']} "
+            f"{status}{gate_info}"
+        )
+        pm = f"{r['premarket_pct']:+.2f}%"
+        lines.append(f"   Entry: {r['entry_method']} | Premkt: {pm}")
+        lines.append(
+            f"   Stop: ${r['stop_loss']:.2f} | TP1: ${r['tp1_price']:.2f} | "
+            f"Trail: ${r['chandelier_stop']:.2f}"
+        )
+        close = r.get("last_close", 0)
+        size = r["position_size"]
+        if close > 0 and size > 0:
+            leverage = config.get("position_sizing", {}).get("leverage", 5)
+            notional = size * close
+            margin = notional / leverage if leverage > 0 else notional
+            lines.append(
+                f"   Size: {size} shares (${notional:,.0f} not. / ${margin:,.0f} margin)"
+            )
+        lines.append("")
+
+    go = sum(1 for r in results if r["status"] == "GO")
+    watch = sum(1 for r in results if r["status"] == "WATCH")
+    skip = sum(1 for r in results if r["status"] == "SKIP")
+    lines.append(f"<b>{go} GO | {watch} WATCH | {skip} SKIP</b>")
+
+    return send_message("\n".join(lines))
+
+
+def _build_ticker_block_us(r: dict, idx: int, config: dict) -> str:
+    """Build a compact ticker context block for the US deep-dive prompt."""
+    checks = r["checks"]
+    passed = [name for name, c in checks.items() if c["passed"]]
+    failed = [name for name, c in checks.items() if not c["passed"]]
+    close = r.get("last_close", 0)
+    leverage = config.get("position_sizing", {}).get("leverage", 5)
+    notional = r["position_size"] * close if close > 0 else 0
+    margin = notional / leverage if leverage > 0 else notional
+
+    return (
+        f"{idx}. {r['ticker']} \u2014 {r['status']} ({r['score']}/{r['max_score']})\n"
+        f"   Close: ${close:.2f} | Premkt: {r['premarket_pct']:+.2f}% | "
+        f"Entry: {r['entry_method']}\n"
+        f"   SL: ${r['stop_loss']:.2f} | TP1: ${r['tp1_price']:.2f} | "
+        f"Trail: ${r['chandelier_stop']:.2f}\n"
+        f"   Size: {r['position_size']} shares (${notional:,.0f} not. / ${margin:,.0f} margin)\n"
+        f"   \u2705 {', '.join(passed)}"
+        + (f" | \u274c {', '.join(failed)}" if failed else "")
+    )
+
+
+def send_us_deepdive_prompt(results: list[dict], config: dict) -> bool:
+    """Build and send US deep-dive Prompt 2 with GO/WATCH tickers pre-filled."""
+    actionable = [r for r in results if r["status"] in ("GO", "WATCH")]
+    if not actionable:
+        logger.debug("No GO/WATCH US tickers, skipping deep-dive prompt")
+        return False
+
+    gates = actionable[0].get("gates", {})
+    vix_val = gates.get("vix_value", 0)
+    adx_val = gates.get("adx_value", 0)
+
+    ticker_blocks = [
+        _build_ticker_block_us(r, i, config)
+        for i, r in enumerate(actionable, 1)
+    ]
+
+    context_msg = (
+        "\U0001f4cb <b>Prompt 2 \u2014 US Deep Dive</b>\n"
+        "\u2501" * 30 + "\n\n"
+        f"<b>{len(actionable)} actionable stocks</b> | "
+        f"VIX: {vix_val} | ADX: {adx_val}\n\n"
+        + "\n\n".join(ticker_blocks)
+    )
+    send_message(context_msg)
+
+    ticker_summary = []
+    for r in actionable:
+        checks = r["checks"]
+        failed = [name for name, c in checks.items() if not c["passed"]]
+        fail_str = f" (miss: {', '.join(failed)})" if failed else ""
+        ticker_summary.append(
+            f"- {r['ticker']} {r['status']} {r['score']}/6{fail_str} | "
+            f"${r.get('last_close', 0):.2f} | SL ${r['stop_loss']:.2f}"
+        )
+    tickers_str = "\n".join(ticker_summary)
+
+    prompt = (
+        "\u2b07\ufe0f <b>Copy from here to Perplexity</b> \u2b07\ufe0f\n"
+        "\u2501" * 30 + "\n\n"
+        "Search real-time news. You are a risk analyst covering US large-cap "
+        "equities (S&P 500).\n\n"
+        "My automated technical screener selected these stocks for CFD "
+        "multiday swing trades (3-7 sessions, 5:1 leverage via Fineco):\n\n"
+        f"{tickers_str}\n\n"
+        "Technicals are already validated by the screener. Your job is to find "
+        "ONLY fundamental deal-breakers that technicals cannot see.\n\n"
+        "For EACH stock answer these 3 questions:\n\n"
+        "1. EARNINGS RISK: Does it report earnings in the next 7 trading days?\n"
+        "   \u2192 \u26d4 YES (date) / \u2705 NO\n"
+        "   If YES \u2192 automatic veto, never hold CFD through earnings.\n\n"
+        "2. CATALYST: What is the active catalyst in the last 48h? "
+        "Does it have multi-day legs (3-7 sessions) or already priced in?\n"
+        "   \u2192 \U0001f7e2 ACTIVE (catalyst + why it has legs in 1 sentence)\n"
+        "   \u2192 \U0001f7e1 FADING (catalyst weakening)\n"
+        "   \u2192 \U0001f534 NONE (no catalyst or already priced in)\n\n"
+        "3. KILLER EVENT next 48h: Specific event (FOMC, CPI, NFP, "
+        "PPI, ex-dividend, antitrust) that could reverse this stock?\n"
+        "   \u2192 \u26a0\ufe0f YES (event + date) / \u2705 NO\n\n"
+        "OUTPUT (strict, one line per stock + verdict):\n\n"
+        "[TICKER] | \u26d4/\u2705 Earnings | \U0001f7e2/\U0001f7e1/\U0001f534 Catalyst | \u26a0\ufe0f/\u2705 Event\n"
+        "\u2192 ENTRY / WAIT / SKIP + reason in max 10 words\n\n"
+        "RULES:\n"
+        "- \u26d4 Earnings = SKIP automatic\n"
+        "- \U0001f534 No catalyst + \u26a0\ufe0f Event = SKIP\n"
+        "- \U0001f7e1 Fading catalyst = WAIT\n"
+        "- \U0001f7e2 Active catalyst + \u2705 No event = ENTRY\n"
+        "- For rate-sensitive (banks, REITs, utilities): note 10Y yield move"
+    )
+
+    return send_message(prompt)

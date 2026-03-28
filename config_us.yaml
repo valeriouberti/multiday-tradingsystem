@@ -1,0 +1,154 @@
+tickers:
+  # --- Technology (15) ---
+  - AAPL
+  - MSFT
+  - NVDA
+  - AVGO
+  - META
+  - GOOGL
+  - AMZN
+  - CRM
+  - ORCL
+  - AMD
+  - ADBE
+  - NOW
+  - INTU
+  - CSCO
+  - QCOM
+  # --- Financials (12) ---
+  - JPM
+  - V
+  - MA
+  - BAC
+  - GS
+  - MS
+  - BLK
+  - SCHW
+  - AXP
+  - C
+  - WFC
+  - BX
+  # --- Health Care (10) ---
+  - UNH
+  - LLY
+  - JNJ
+  - ABBV
+  - MRK
+  - TMO
+  - ABT
+  - PFE
+  - AMGN
+  - ISRG
+  # --- Consumer Discretionary (8) ---
+  - TSLA
+  - HD
+  - MCD
+  - NKE
+  - LOW
+  - SBUX
+  - TJX
+  - BKNG
+  # --- Industrials (10) ---
+  - GE
+  - CAT
+  - HON
+  - UNP
+  - RTX
+  - LMT
+  - DE
+  - BA
+  - GD
+  - NOC
+  # --- Energy (7) ---
+  - XOM
+  - CVX
+  - COP
+  - SLB
+  - EOG
+  - MPC
+  - PSX
+  # --- Communication (5) ---
+  - NFLX
+  - DIS
+  - CMCSA
+  - TMUS
+  - VZ
+  # --- Consumer Staples (7) ---
+  - PG
+  - KO
+  - PEP
+  - COST
+  - WMT
+  - PM
+  - CL
+  # --- Utilities (5) ---
+  - NEE
+  - SO
+  - DUK
+  - D
+  - AEP
+  # --- Materials (5) ---
+  - LIN
+  - APD
+  - SHW
+  - FCX
+  - NEM
+  # --- Real Estate (4) ---
+  - PLD
+  - AMT
+  - EQIX
+  - SPG
+  # --- Semiconductors extra (6) ---
+  - TSM
+  - ASML
+  - MU
+  - LRCX
+  - KLAC
+  - MRVL
+  # --- Mega-cap extras (3) ---
+  - BRK-B
+  - T
+  - IBM
+
+benchmark: SPY
+strategy:
+  ema_fast: 20
+  ema_slow: 50
+  ema_bone: 9
+  weekly_ema_fast: 20
+  weekly_ema_slow: 50
+  macd_fast: 12
+  macd_slow: 26
+  macd_signal: 9
+  rsi_length: 14
+  rsi_threshold: 45
+  mfi_length: 14
+  mfi_threshold: 45
+  atr_length: 14
+  atr_multiplier: 1.5
+  rs_lookback_days: 20
+  rs_roc_days: 5
+  vix_threshold: 30
+  adx_length: 14
+  adx_threshold: 20
+  chandelier_lookback: 22
+  chandelier_atr_mult: 3.0
+  gap_threshold_pct: 0.5
+  data_period_daily: 120d
+  data_period_weekly: 2y
+  data_period_h1: 5d
+position_sizing:
+  capital: 1000
+  risk_per_trade: 0.02
+  leverage: 5
+  max_capital_pct: 0.4
+alerts:
+  go_threshold: 4
+  watch_threshold: 3
+session:
+  timezone: US/Eastern
+  market_open_utc: "14:30"
+  orb_minutes: 15
+output:
+  save_csv: true
+  csv_dir: output/reports_us

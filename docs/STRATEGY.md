@@ -1,14 +1,15 @@
 # Multiday Trading System — ITA CFD + ETF Settoriali
 
-> Due strategie su Borsa Italiana via **Fineco**. Selezione titoli via AI
-> (Perplexity Pro, prompt schedulati). Validazione tecnica con Python.
+> Tre strategie via **Fineco**. Selezione titoli automatica (screening tecnico Python)
+> + validazione fondamentale via AI (Perplexity Pro).
 > Holding period: 3-7 sessioni.
 >
 > | Strategia | Strumento | Leva | Capitale | Benchmark |
 > | :-- | :-- | :-- | :-- | :-- |
 > | **ITA CFD** | CFD su azioni FTSE MIB | 5:1 ESMA | €1.000 | ETFMIB.MI |
+> | **US CFD** | CFD su azioni S&P 500 | 5:1 ESMA | $1.000 | SPY |
 > | **ETF Settoriali** | Cash ETF Borsa Italiana | 1:1 | €4.000 | CSSPX.MI |
-> | **Totale** | | | **€5.000** | |
+> | **Totale** | | | **~€6.000** | |
 
 ---
 
@@ -181,7 +182,122 @@ Subito dopo entry: inserire Stop Loss + TP1 come ordini su Fineco.
 
 ---
 
-### 13:00 — ETF: Prompt 1 + 2 (8 min, pausa pranzo, da telefono)
+### 13:00 — US S&P 500 CFD: Prompt 1 + Script + Prompt 2 auto (10 min)
+
+> Stesso flusso ITA: Prompt 1 per contesto US → Script scansiona 100 titoli →
+> Prompt 2 inviato automaticamente su Telegram con i ticker GO/WATCH.
+> US premarket attivo da 7:00 AM ET (13:00 CET), dati macro EU digeriti.
+
+| Aspetto | Valore |
+| :-- | :-- |
+| Universo | Top 100 S&P 500 per liquidita |
+| Benchmark | SPY |
+| Capitale | $1.000 (separato da ITA) |
+| Leva | 5:1 (Fineco ESMA CFD) |
+| VIX gate | < 30 |
+| ADX gate | >= 20 su SPY |
+| Valuta | USD |
+
+#### PROMPT 1 US: Market Context + Catalyst (Perplexity, 13:00 CET)
+
+```
+Act as an institutional equity strategist covering US large-cap stocks
+(S&P 500). Search real-time news. Today is [DATE].
+
+CONTEXT: I swing trade US large-cap stocks as CFDs via Fineco (5:1 ESMA
+leverage, $1,000 capital, 3-7 session holding period). An automated
+Python screener scans all 100 stocks technically — I need macro context
+and active catalysts to validate the signals.
+
+TASK: Pre-market briefing in 3 sections.
+
+1. US MACRO (today + next 48h):
+   - Fed/FOMC status, next meeting date
+   - Key data releases: CPI, PPI, NFP, jobless claims, retail sales
+   - 10Y Treasury yield: level and direction
+   - USD/EUR: direction and impact on multinationals
+   - S&P 500 / Nasdaq futures at 7:00 AM ET: direction vs prev close
+   - MACRO VETO: is there an event TODAY that makes ALL entries risky?
+     If yes → ⚠️ MACRO VETO DAY (specify which)
+
+2. ACTIVE CATALYSTS (last 24-48h with multi-day legs):
+   List ONLY concrete catalysts (with source and date) moving S&P 500 stocks:
+   - Earnings beats/misses (which stocks, which sector)
+   - Fed speakers / rate expectations shift
+   - Sector regulation (antitrust, AI policy, pharma pricing)
+   - Geopolitical (tariffs, trade deals, defense spending)
+   - Commodity moves (oil → XOM/COP, copper → FCX, gold → NEM)
+   - M&A activity involving S&P 500 names
+   - Fund flow data / sector rotation signals
+
+   For each catalyst:
+   [TICKER] | Catalyst: [1 sentence] | Legs: [why not priced in yet]
+
+3. RISK FLAGS:
+   - S&P 500 stocks reporting earnings in the next 7 trading days
+   - Stocks down >2% in pre-market
+   - Sectors at risk from imminent events
+
+FORMAT: Concise. Bullet points. No filler.
+```
+
+#### 13:15 — Script US (automatico)
+
+```bash
+python main_us.py    # scansiona tutti i ~100 titoli S&P 500
+```
+
+Lo script:
+1. Scansiona tutti i ~100 titoli nel config
+2. Calcola i 6 check + 2 gate per ciascuno (benchmark: SPY)
+3. Invia il report su Telegram (GO / WATCH / SKIP, solo GO/WATCH in dettaglio)
+4. **Invia automaticamente il Prompt 2 su Telegram** con i ticker GO/WATCH
+
+→ Se GO: leggi Prompt 2 su Telegram, copialo su Perplexity, poi prepara ordini Fineco.
+→ Se nessun GO/WATCH: niente da fare.
+
+#### PROMPT 2 US: Deep Dive (auto-generato dallo script)
+
+> **Stesso sistema dell'ITA.** Lo script lo compone con i ticker esatti
+> e lo invia su Telegram in 2 messaggi.
+
+**Messaggio 1 (contesto):** Riepilogo tecnico per ogni ticker GO/WATCH (USD):
+- Score, check passati/falliti, entry method, premarket %
+- Stop loss, TP1, chandelier stop
+- Size, notional, margin
+
+**Messaggio 2 (il prompt da copiare):** 3 domande deal-breaker:
+
+| # | Domanda | Logica |
+| :-- | :-- | :-- |
+| 1 | **Earnings Risk** | Trimestrali nei prossimi 7gg? ⛔ = veto automatico |
+| 2 | **Catalyst** | C'e un catalyst attivo 48h con gambe multiday? |
+| 3 | **Killer Event** | FOMC, CPI, NFP, ex-div, antitrust nelle prossime 48h? |
+
+**Regole specifiche US:**
+- ⛔ Earnings → SKIP automatico (mai tenere CFD attraverso earnings)
+- Per rate-sensitive (bancari, REIT, utilities): nota su 10Y yield move >5bp
+- Per mega-cap tech (AAPL, MSFT, NVDA, META, GOOGL, AMZN): nota su antitrust / AI regulation
+
+---
+
+### 15:30 — US CFD Entry (5 min, Fineco app)
+
+> US market apre alle 15:30 CET. Entry nella prima mezz'ora.
+
+| Entry Method | Finestra | Condizione |
+| :-- | :-- | :-- |
+| GAP_UP | 15:30-15:45 | Gap >= 0.5% sopra EMA20 + max giorno precedente |
+| PULLBACK | 15:45+ | Rimbalzo su EMA20 Daily |
+| ORB | 15:45+ | Breakout Opening Range H1 con volume >= 1.5x |
+| BONE_ZONE | 15:45+ | Dip nella zona EMA 9-20, candela verde sopra EMA9 |
+| WAIT | — | Nessun setup → skip |
+
+Subito dopo entry: inserire Stop Loss + TP1 come ordini su Fineco.
+
+---
+
+### 13:30 — ETF: Prompt 1 + 2 (8 min, pausa pranzo, da telefono)
 
 > US pre-market attivo da 2 ore (7:00 AM ET), futures stabiliti,
 > dati macro EU digeriti. Momento ottimale per sector rotation.
@@ -356,19 +472,27 @@ Dopo il prompt: aggiorna il Chandelier Stop su Fineco per ogni posizione aperta.
 
 | Ora CET | Strategia | Azione | Durata |
 | :-- | :-- | :-- | :-- |
-| **07:30** | Entrambe | Macro veto | 2 min |
+| **07:30** | Tutte | Macro veto (EU + US) | 2 min |
 | **07:30** | ETF | Prompt 0 — overnight check | 3 min |
-| **08:00** | ITA CFD | Prompt 1 — market context (Perplexity) | 3 min |
-| **08:30** | ITA CFD | `python main_ita.py` → report + Prompt 2 auto su Telegram | 2 min |
+| **08:00** | ITA CFD | Prompt 1 — market context ITA (Perplexity) | 3 min |
+| **08:30** | ITA CFD | `python main_ita.py` → report + Prompt 2 auto | 2 min |
 | **08:35** | ITA CFD | Copia Prompt 2 da Telegram su Perplexity → deep dive | 3 min |
 | **09:00** | ITA CFD | Entry su Fineco (GAP_UP/PB/ORB/BZ) | 5 min |
-| **13:00** | ETF | Prompt 1 + 2 (schedulati, pausa pranzo) | 8 min |
-| **13:20** | ETF | `python main_etf.py` + aggiorna config | 2 min |
+| **13:00** | US CFD | Prompt 1 — market context US (Perplexity) | 3 min |
+| **13:15** | US CFD | `python main_us.py` → report + Prompt 2 auto | 3 min |
+| **13:20** | US CFD | Copia Prompt 2 da Telegram su Perplexity → deep dive | 3 min |
+| **13:30** | ETF | Prompt 1 + 2 (schedulati, pausa pranzo) | 8 min |
+| **13:45** | ETF | `python main_etf.py` + aggiorna config | 2 min |
 | **14:30-16:30** | ETF | Entry su Fineco (buy a mercato) | 5 min |
-| **17:00** | Entrambe | Deadline — no entry dopo | 0 min |
-| **22:00** | Entrambe | Prompt 3 — exit review + aggiorna Trail | 10 min |
+| **15:30** | US CFD | Entry su Fineco (GAP_UP/PB/ORB/BZ) | 5 min |
+| **17:00** | ITA CFD | Deadline ITA — no entry dopo | 0 min |
+| **20:00** | US CFD | Deadline US — no new entry | 0 min |
+| **22:00** | Tutte | Prompt 3 — exit review + aggiorna Trail | 10 min |
 
-**Tempo totale: ~35 minuti/giorno**
+**Tempo totale: ~50 minuti/giorno** (3 strategie)
+
+> Nota: ITA e US girano in parallelo nella pausa pranzo. US entry alle 15:30 non
+> interferisce con la chiusura ITA alle 17:00.
 
 ---
 
@@ -490,8 +614,11 @@ shares = min(
 9. **Position sizing**: usare il numero di shares dello script, mai superare
 10. **BTP-Bund spread** (ITA): widening >10bp in un giorno → chiudere bancari
 11. **EUR/USD** (ETF): EUR in rafforzamento erode rendimenti ETF con sottostante USD
-12. **Max posizioni**: ITA max 3 CFD, ETF max 3 posizioni
+12. **Max posizioni**: ITA max 3 CFD, US max 3 CFD, ETF max 3 posizioni
 13. **Correlazione** (ETF): se pairwise > 0.7, dimezzare il size combinato
+14. **US overnight**: CFD US ha costo overnight simile a ITA (~0.05%/giorno)
+15. **US earnings season**: ~25% S&P 500 riporta per trimestre — earnings gate critico
+16. **10Y yield** (US): move >5bp impatta bancari, REIT, utilities
 
 ---
 
@@ -514,9 +641,10 @@ Setup TradingView:
 ## Running
 
 ```bash
-python main_ita.py                          # ITA CFD (default: config_ita.yaml)
-python main_etf.py                          # ETF (default: config_etf.yaml)
-python main_ita.py --config custom.yaml     # override
+python main_ita.py                          # ITA CFD — 40 titoli FTSE MIB
+python main_us.py                           # US CFD — ~100 titoli S&P 500
+python main_etf.py                          # ETF settoriali
+python main_us.py --tickers "AAPL,NVDA"     # override tickers
 ```
 
 ## Telegram
@@ -564,6 +692,24 @@ VIX: 24.8 ✅ | ADX: 22.0 ✅
 🔴 ENI.MI 2/6 SKIP
 
 6 GO | 1 WATCH | 2 SKIP
+```
+
+**US CFD:**
+```
+🇺🇸 US S&P 500 CFD Report
+
+VIX: 18.2 ✅ | ADX: 24.5 ✅
+
+🟢 NVDA 6/6 GO
+   Entry: GAP_UP | Premkt: +2.15%
+   Stop: $118.40 | TP1: $128.60 | Trail: $112.30
+   Size: 2 shares ($248 not. / $50 margin)
+
+🟡 JPM 4/6 WATCH
+   Entry: PULLBACK | Premkt: +0.45%
+   Stop: $238.20 | TP1: $252.80 | Trail: $230.10
+
+12 GO | 8 WATCH | 77 SKIP
 ```
 
 ---

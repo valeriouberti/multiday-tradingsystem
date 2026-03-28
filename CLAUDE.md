@@ -35,6 +35,13 @@ project/
 │   ├── engine.py           ← Bar-by-bar simulation (SL/TP1/Chandelier lifecycle)
 │   ├── metrics.py          ← Performance analytics (Sharpe, Sortino, Calmar, drawdown)
 │   └── plots.py            ← Equity curve + trade markers (matplotlib)
+├── main_us.py              ← Entry point: US S&P 500 CFD strategy (--tickers override)
+├── config_us.yaml          ← US stocks config (top 100 S&P 500 by liquidity)
+├── validator_us/
+│   ├── __init__.py
+│   ├── indicators.py       ← US-specific: position sizing with leverage (USD)
+│   ├── scorer.py           ← 6 checks + 2 gates scorer (benchmark: SPY)
+│   └── report.py           ← Rich table + CSV (USD, Fineco CFD format)
 ├── backtest.py             ← CLI: single-ticker backtest (--mode, --ticker, --start, --end)
 ├── backtest_ftsemib.py     ← Full FTSE MIB universe backtest with aggregate report
 ├── optimize_params.py      ← In-sample grid search (1080 combos on 2020-2024)
@@ -107,6 +114,8 @@ Entry timing helpers:
 ```bash
 python main_ita.py                                    # All 40 FTSE MIB stocks
 python main_ita.py --tickers "ISP.MI,UCG.MI,LDO.MI"  # Override with specific tickers
+python main_us.py                                     # Top 100 S&P 500 stocks
+python main_us.py --tickers "AAPL,MSFT,NVDA"         # Override with specific tickers
 python main_etf.py                                    # Sector ETFs
 ```
 
