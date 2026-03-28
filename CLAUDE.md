@@ -44,6 +44,7 @@ project/
 │   └── plots.py            ← Equity curve + trade markers (matplotlib)
 ├── backtest.py             ← CLI: single-ticker backtest (--mode, --ticker, --start, --end)
 ├── optimize_optuna.py      ← Optuna Bayesian optimization (ITA + US, simple + WFA)
+├── montecarlo.py           ← Monte Carlo simulation (trade-order shuffling, confidence intervals)
 ├── scripts/
 │   └── update_tickers.py   ← CI helper to update tickers in YAML
 ├── .github/workflows/
@@ -60,8 +61,7 @@ project/
 │   ├── STRATEGY.md         ← Strategy overview + shared rules
 │   ├── STRATEGY_ITA.md     ← ITA prompts, params, tickers
 │   ├── STRATEGY_US.md      ← US prompts, params, universe
-│   ├── STRATEGY_ETF.md     ← ETF prompts, gates, ETF list
-│   └── BACKTEST_US_ROADMAP.md
+│   └── STRATEGY_ETF.md     ← ETF prompts, gates, ETF list
 ├── pinescript/
 │   ├── ita_cfd_validator.pine  ← TradingView ITA v1.2 (Optuna WFA tuned)
 │   └── us_cfd_validator.pine   ← TradingView US v1.0 (Optuna WFA tuned)
@@ -132,6 +132,8 @@ python main_etf.py                                    # Sector ETFs
 ### Backtesting
 ```bash
 python backtest.py --ticker ISP.MI --start 2023-01-01 --end 2024-12-31   # Single ticker
+python montecarlo.py --mode ita --simulations 10000                       # Monte Carlo ITA
+python montecarlo.py --mode us --simulations 10000 --save-plot            # Monte Carlo US + plots
 ```
 
 ### Parameter Optimization (Optuna)
@@ -175,6 +177,9 @@ The backtester uses vectorized signals + bar-by-bar simulation:
 
 ### Optimization
 **Optuna Bayesian** (`optimize_optuna.py`): TPE sampler with precomputed indicators (~10x faster). Works for both ITA (39 tickers) and US (33 sector-sample stocks). Two modes: single-period and Walk-Forward Analysis (8 rolling windows). Search space: MFI 35-60, RSI 35-60, ADX 10-30, GO 3-5. Converges in ~300 trials.
+
+### Monte Carlo
+**Monte Carlo** (`montecarlo.py`): Shuffles trade order 10,000+ times to produce confidence intervals on equity, drawdown, and probability of ruin. Output: P5/P25/P50/P75/P95 percentiles, histogram plots.
 
 ## Automation (GitHub Actions)
 - ITA: triggered at 8:30 CET Mon-Fri or via workflow_dispatch with `--tickers` override

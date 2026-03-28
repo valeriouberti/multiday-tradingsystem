@@ -79,6 +79,10 @@ python main_etf.py                                    # ETF — sector ETFs
 # Single ticker backtest
 python backtest.py --ticker ISP.MI --start 2023-01-01 --end 2024-12-31
 
+# Monte Carlo simulation (trade-order shuffling)
+python montecarlo.py --mode ita --simulations 10000
+python montecarlo.py --mode us --simulations 10000 --save-plot
+
 # Optuna Bayesian optimization
 python optimize_optuna.py --mode ita --trials 300          # ITA single-period
 python optimize_optuna.py --mode us --trials 300           # US single-period
@@ -186,6 +190,7 @@ project/
 │   └── plots.py            ← Equity curve + trade markers
 ├── backtest.py             ← CLI: single-ticker backtest
 ├── optimize_optuna.py      ← Optuna Bayesian optimization (ITA + US)
+├── montecarlo.py           ← Monte Carlo simulation (confidence intervals)
 ├── scripts/
 │   └── update_tickers.py   ← CI helper: update tickers in YAML
 ├── .github/workflows/
@@ -197,7 +202,7 @@ project/
 │   ├── STRATEGY_ITA.md     ← ITA prompts, params, tickers
 │   ├── STRATEGY_US.md      ← US prompts, params, universe
 │   ├── STRATEGY_ETF.md     ← ETF prompts, gates, ETF list
-│   └── BACKTEST_US_ROADMAP.md
+│   └── STRATEGY_ETF.md     ← ETF prompts, gates, ETF list
 ├── pinescript/
 │   ├── ita_cfd_validator.pine  ← TradingView ITA (v1.2)
 │   └── us_cfd_validator.pine   ← TradingView US (v1.0)
@@ -232,4 +237,3 @@ optuna>=3.0
 - [ITA CFD Strategy](docs/STRATEGY_ITA.md) — Perplexity prompts, tuned params, ticker reference
 - [US CFD Strategy](docs/STRATEGY_US.md) — US prompts, tuned params, S&P 500 universe
 - [ETF Strategy](docs/STRATEGY_ETF.md) — Sector rotation prompts, ETF list
-- [US Backtest Roadmap](docs/BACKTEST_US_ROADMAP.md) — US backtesting phases
