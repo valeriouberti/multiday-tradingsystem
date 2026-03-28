@@ -79,9 +79,6 @@ python main_etf.py                                    # ETF — sector ETFs
 # Single ticker backtest
 python backtest.py --ticker ISP.MI --start 2023-01-01 --end 2024-12-31
 
-# Full FTSE MIB universe backtest
-python backtest_ftsemib.py
-
 # Optuna Bayesian optimization
 python optimize_optuna.py --mode ita --trials 300          # ITA single-period
 python optimize_optuna.py --mode us --trials 300           # US single-period
@@ -188,7 +185,6 @@ project/
 │   ├── metrics.py          ← Performance analytics (Sharpe, Sortino, Calmar)
 │   └── plots.py            ← Equity curve + trade markers
 ├── backtest.py             ← CLI: single-ticker backtest
-├── backtest_ftsemib.py     ← Full FTSE MIB universe backtest
 ├── optimize_optuna.py      ← Optuna Bayesian optimization (ITA + US)
 ├── scripts/
 │   └── update_tickers.py   ← CI helper: update tickers in YAML

@@ -43,7 +43,6 @@ project/
 │   ├── metrics.py          ← Performance analytics (Sharpe, Sortino, Calmar, drawdown)
 │   └── plots.py            ← Equity curve + trade markers (matplotlib)
 ├── backtest.py             ← CLI: single-ticker backtest (--mode, --ticker, --start, --end)
-├── backtest_ftsemib.py     ← Full FTSE MIB universe backtest (reads tickers from config)
 ├── optimize_optuna.py      ← Optuna Bayesian optimization (ITA + US, simple + WFA)
 ├── scripts/
 │   └── update_tickers.py   ← CI helper to update tickers in YAML
@@ -133,7 +132,6 @@ python main_etf.py                                    # Sector ETFs
 ### Backtesting
 ```bash
 python backtest.py --ticker ISP.MI --start 2023-01-01 --end 2024-12-31   # Single ticker
-python backtest_ftsemib.py                                                # Full FTSE MIB universe
 ```
 
 ### Parameter Optimization (Optuna)

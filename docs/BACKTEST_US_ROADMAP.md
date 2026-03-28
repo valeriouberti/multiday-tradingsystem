@@ -64,7 +64,7 @@ python backtest.py --mode us --ticker AAPL --start 2020-01-01 --end 2024-12-31 -
 | Real Estate | PLD, AMT, EQIX |
 
 **Implementation:**
-- Create `backtest_sp500.py` (mirror `backtest_ftsemib.py`)
+- Use `optimize_optuna.py --mode us` for universe-level validation
 - Aggregate metrics: avg return, win rate, profit factor, max DD, Sharpe
 - Per-sector breakdown
 - Output: `output/reports_us/backtest_sp500.csv`

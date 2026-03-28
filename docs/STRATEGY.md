@@ -175,7 +175,6 @@ export TELEGRAM_CHAT_ID="987654321"
 | Script | Descrizione |
 | :-- | :-- |
 | `backtest.py` | Backtest singolo ticker (`--ticker ISP.MI --start 2023-01-01`) |
-| `backtest_ftsemib.py` | Backtest tutti i titoli FTSE MIB con report aggregato |
 | `optimize_optuna.py` | Optuna Bayesian optimization (ITA + US, simple + WFA) |
 
 ### Trade Lifecycle
