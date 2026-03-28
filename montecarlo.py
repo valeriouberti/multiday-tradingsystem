@@ -100,38 +100,35 @@ def run_montecarlo(
     n_simulations: int = 10_000,
     ruin_threshold: float = 0.5,
 ) -> dict:
-    """Shuffle trade PnL order and compute equity distribution.
+    """Shuffle trade PnL order and compute path-dependent risk metrics.
 
-    For each simulation:
-      1. Start with initial_capital
-      2. Apply each trade PnL in shuffled order
-      3. Track running equity, peak, drawdown
-
-    Returns dict with percentile statistics and ruin probability.
+    Note: Final equity is always identical across simulations (addition is
+    commutative). The value of shuffling is in PATH-DEPENDENT metrics:
+    max drawdown, min equity reached, and probability of ruin (equity
+    dropping below threshold at any point during the path).
     """
     pnl_array = np.array(trades_pnl)
     n_trades = len(pnl_array)
 
-    final_equities = np.empty(n_simulations)
     max_drawdowns = np.empty(n_simulations)
-    total_returns = np.empty(n_simulations)
+    min_equities = np.empty(n_simulations)
+    ruin_hits = np.empty(n_simulations, dtype=bool)
 
     ruin_level = initial_capital * ruin_threshold
+    final_equity = initial_capital + float(np.sum(pnl_array))
+    total_return = (final_equity - initial_capital) / initial_capital * 100
 
     for sim in range(n_simulations):
         shuffled = np.random.permutation(pnl_array)
-        equity = np.empty(n_trades + 1)
-        equity[0] = initial_capital
-
-        for j in range(n_trades):
-            equity[j + 1] = equity[j] + shuffled[j]
+        equity = initial_capital + np.cumsum(shuffled)
+        equity = np.insert(equity, 0, initial_capital)
 
         peak = np.maximum.accumulate(equity)
         drawdown_pct = np.where(peak > 0, (equity - peak) / peak * 100, 0.0)
 
-        final_equities[sim] = equity[-1]
         max_drawdowns[sim] = drawdown_pct.min()
-        total_returns[sim] = (equity[-1] - initial_capital) / initial_capital * 100
+        min_equities[sim] = equity.min()
+        ruin_hits[sim] = equity.min() < ruin_level
 
     percentiles = [5, 25, 50, 75, 95]
 
@@ -139,35 +136,29 @@ def run_montecarlo(
         "n_simulations": n_simulations,
         "n_trades": n_trades,
         "initial_capital": initial_capital,
-        # Final equity stats
-        "equity_mean": float(np.mean(final_equities)),
-        "equity_std": float(np.std(final_equities)),
-        "equity_percentiles": {
-            p: float(np.percentile(final_equities, p)) for p in percentiles
-        },
-        # Total return stats
-        "return_mean": float(np.mean(total_returns)),
-        "return_std": float(np.std(total_returns)),
-        "return_percentiles": {
-            p: float(np.percentile(total_returns, p)) for p in percentiles
-        },
-        # Max drawdown stats
+        # Deterministic (order-independent)
+        "final_equity": final_equity,
+        "total_return": total_return,
+        # Max drawdown distribution (path-dependent)
         "dd_mean": float(np.mean(max_drawdowns)),
         "dd_std": float(np.std(max_drawdowns)),
         "dd_percentiles": {
             p: float(np.percentile(max_drawdowns, p)) for p in percentiles
         },
+        # Min equity distribution (path-dependent)
+        "min_eq_mean": float(np.mean(min_equities)),
+        "min_eq_std": float(np.std(min_equities)),
+        "min_eq_percentiles": {
+            p: float(np.percentile(min_equities, p)) for p in percentiles
+        },
         # Risk metrics
-        "prob_ruin": float(np.mean(final_equities < ruin_level)),
-        "prob_profit": float(np.mean(total_returns > 0)),
-        "prob_loss": float(np.mean(total_returns <= 0)),
-        "worst_equity": float(np.min(final_equities)),
-        "best_equity": float(np.max(final_equities)),
+        "prob_ruin": float(np.mean(ruin_hits)),
+        "worst_min_equity": float(np.min(min_equities)),
+        "best_min_equity": float(np.max(min_equities)),
         "worst_dd": float(np.min(max_drawdowns)),
         # Raw arrays for plotting
-        "_final_equities": final_equities,
         "_max_drawdowns": max_drawdowns,
-        "_total_returns": total_returns,
+        "_min_equities": min_equities,
     }
 
 
@@ -182,107 +173,92 @@ def print_results(results: dict, mode: str) -> None:
         f"Trades shuffled: {results['n_trades']:,} | "
         f"Initial capital: {currency}{cap:,.0f}"
     )
+    ret = results["total_return"]
+    ret_style = "green" if ret >= 0 else "red"
+    console.print(
+        f"Final equity: {currency}{results['final_equity']:,.0f} "
+        f"([{ret_style}]{ret:+.1f}%[/{ret_style}]) — "
+        f"[dim]deterministic, same for all simulations[/dim]"
+    )
     console.print()
 
-    # --- Equity distribution ---
-    eq_table = Table(title="Final Equity Distribution", show_lines=True)
-    eq_table.add_column("Percentile", style="cyan", justify="center")
-    eq_table.add_column("Equity", justify="right")
-    eq_table.add_column("Return", justify="right")
-    eq_table.add_column("Max Drawdown", justify="right")
+    # --- Path risk distribution ---
+    risk_table = Table(
+        title="Path Risk Distribution (order-dependent)", show_lines=True,
+    )
+    risk_table.add_column("Percentile", style="cyan", justify="center")
+    risk_table.add_column("Max Drawdown", justify="right")
+    risk_table.add_column("Min Equity Reached", justify="right")
 
     for p in [5, 25, 50, 75, 95]:
-        eq = results["equity_percentiles"][p]
-        ret = results["return_percentiles"][p]
         dd = results["dd_percentiles"][p]
-        ret_style = "green" if ret >= 0 else "red"
-        eq_table.add_row(
+        meq = results["min_eq_percentiles"][p]
+        risk_table.add_row(
             f"P{p}",
-            f"{currency}{eq:,.0f}",
-            f"[{ret_style}]{ret:+.1f}%[/{ret_style}]",
             f"[red]{dd:.1f}%[/red]",
+            f"{currency}{meq:,.0f}",
         )
 
-    console.print(eq_table)
+    console.print(risk_table)
 
     # --- Summary stats ---
     stats = Table(title="Summary Statistics", show_lines=True)
     stats.add_column("Metric", style="cyan")
     stats.add_column("Value", justify="right", style="bold")
 
-    stats.add_row("Mean return", f"{results['return_mean']:+.2f}%")
-    stats.add_row("Std dev return", f"{results['return_std']:.2f}%")
     stats.add_row("Mean max drawdown", f"{results['dd_mean']:.1f}%")
-    stats.add_row("Worst drawdown (any sim)", f"{results['worst_dd']:.1f}%")
+    stats.add_row("Std dev max drawdown", f"{results['dd_std']:.1f}%")
+    stats.add_row("Worst drawdown (any sim)", f"[red]{results['worst_dd']:.1f}%[/red]")
+    stats.add_row("", "")
+    stats.add_row("Mean min equity", f"{currency}{results['min_eq_mean']:,.0f}")
+    stats.add_row("Worst min equity (any sim)", f"{currency}{results['worst_min_equity']:,.0f}")
+    stats.add_row("Best min equity (any sim)", f"{currency}{results['best_min_equity']:,.0f}")
     stats.add_row("", "")
     stats.add_row(
-        "Probability of profit",
-        f"[green]{results['prob_profit']*100:.1f}%[/green]",
-    )
-    stats.add_row(
-        "Probability of loss",
-        f"[red]{results['prob_loss']*100:.1f}%[/red]",
-    )
-    stats.add_row(
-        "Probability of ruin (<50% capital)",
+        "Prob ruin (equity < 50% at any point)",
         f"[{'red' if results['prob_ruin'] > 0.05 else 'green'}]"
         f"{results['prob_ruin']*100:.2f}%[/]",
-    )
-    stats.add_row("", "")
-    stats.add_row("Best final equity", f"{currency}{results['best_equity']:,.0f}")
-    stats.add_row("Worst final equity", f"{currency}{results['worst_equity']:,.0f}")
-    stats.add_row(
-        "Median final equity",
-        f"{currency}{results['equity_percentiles'][50]:,.0f}",
     )
 
     console.print(stats)
 
 
 def save_plot(results: dict, output_dir: str, mode: str) -> None:
-    """Save equity distribution histogram and drawdown histogram."""
+    """Save max drawdown and min equity histograms."""
     import matplotlib.pyplot as plt
 
     os.makedirs(output_dir, exist_ok=True)
     currency = "$" if mode == "us" else "\u20ac"
 
-    fig, axes = plt.subplots(1, 3, figsize=(18, 5))
-
-    # Equity distribution
-    ax = axes[0]
-    ax.hist(results["_final_equities"], bins=80, color="steelblue", edgecolor="none", alpha=0.8)
-    for p in [5, 50, 95]:
-        val = results["equity_percentiles"][p]
-        ax.axvline(val, color="red" if p == 5 else "orange" if p == 50 else "green",
-                    linestyle="--", linewidth=1.5, label=f"P{p}: {currency}{val:,.0f}")
-    ax.axvline(results["initial_capital"], color="black", linestyle="-", linewidth=1, label="Initial")
-    ax.set_xlabel(f"Final Equity ({currency})")
-    ax.set_ylabel("Frequency")
-    ax.set_title("Final Equity Distribution")
-    ax.legend(fontsize=8)
-
-    # Return distribution
-    ax = axes[1]
-    returns = results["_total_returns"]
-    ax.hist(returns, bins=80, color="seagreen", edgecolor="none", alpha=0.8)
-    ax.axvline(0, color="black", linestyle="-", linewidth=1)
-    ax.axvline(results["return_percentiles"][50], color="orange", linestyle="--",
-               linewidth=1.5, label=f"Median: {results['return_percentiles'][50]:+.1f}%")
-    ax.set_xlabel("Total Return (%)")
-    ax.set_ylabel("Frequency")
-    ax.set_title("Return Distribution")
-    ax.legend(fontsize=8)
+    fig, axes = plt.subplots(1, 2, figsize=(14, 5))
 
     # Max drawdown distribution
-    ax = axes[2]
+    ax = axes[0]
     ax.hist(results["_max_drawdowns"], bins=80, color="indianred", edgecolor="none", alpha=0.8)
     ax.axvline(results["dd_percentiles"][50], color="orange", linestyle="--",
                linewidth=1.5, label=f"Median: {results['dd_percentiles'][50]:.1f}%")
     ax.axvline(results["dd_percentiles"][5], color="red", linestyle="--",
-               linewidth=1.5, label=f"P5: {results['dd_percentiles'][5]:.1f}%")
+               linewidth=1.5, label=f"P5 (worst): {results['dd_percentiles'][5]:.1f}%")
     ax.set_xlabel("Max Drawdown (%)")
     ax.set_ylabel("Frequency")
     ax.set_title("Max Drawdown Distribution")
+    ax.legend(fontsize=8)
+
+    # Min equity distribution
+    ax = axes[1]
+    ax.hist(results["_min_equities"], bins=80, color="steelblue", edgecolor="none", alpha=0.8)
+    ax.axvline(results["min_eq_percentiles"][50], color="orange", linestyle="--",
+               linewidth=1.5, label=f"Median: {currency}{results['min_eq_percentiles'][50]:,.0f}")
+    ax.axvline(results["min_eq_percentiles"][5], color="red", linestyle="--",
+               linewidth=1.5, label=f"P5 (worst): {currency}{results['min_eq_percentiles'][5]:,.0f}")
+    ax.axvline(results["initial_capital"], color="black", linestyle="-",
+               linewidth=1, label=f"Initial: {currency}{results['initial_capital']:,.0f}")
+    ruin_level = results["initial_capital"] * 0.5
+    ax.axvline(ruin_level, color="darkred", linestyle=":", linewidth=1.5,
+               label=f"Ruin: {currency}{ruin_level:,.0f}")
+    ax.set_xlabel(f"Min Equity Reached ({currency})")
+    ax.set_ylabel("Frequency")
+    ax.set_title("Min Equity During Path")
     ax.legend(fontsize=8)
 
     fig.suptitle(
@@ -310,16 +286,16 @@ def save_csv_report(results: dict, output_dir: str, mode: str) -> None:
         writer.writerow(["simulations", results["n_simulations"]])
         writer.writerow(["trades", results["n_trades"]])
         writer.writerow(["initial_capital", results["initial_capital"]])
-        writer.writerow(["return_mean", f"{results['return_mean']:.4f}"])
-        writer.writerow(["return_std", f"{results['return_std']:.4f}"])
+        writer.writerow(["final_equity", f"{results['final_equity']:.2f}"])
+        writer.writerow(["total_return", f"{results['total_return']:.4f}"])
         writer.writerow(["dd_mean", f"{results['dd_mean']:.4f}"])
         writer.writerow(["dd_worst", f"{results['worst_dd']:.4f}"])
-        writer.writerow(["prob_profit", f"{results['prob_profit']:.6f}"])
+        writer.writerow(["min_eq_mean", f"{results['min_eq_mean']:.2f}"])
+        writer.writerow(["worst_min_equity", f"{results['worst_min_equity']:.2f}"])
         writer.writerow(["prob_ruin", f"{results['prob_ruin']:.6f}"])
         for p in [5, 25, 50, 75, 95]:
-            writer.writerow([f"equity_p{p}", f"{results['equity_percentiles'][p]:.2f}"])
-            writer.writerow([f"return_p{p}", f"{results['return_percentiles'][p]:.4f}"])
             writer.writerow([f"dd_p{p}", f"{results['dd_percentiles'][p]:.4f}"])
+            writer.writerow([f"min_eq_p{p}", f"{results['min_eq_percentiles'][p]:.2f}"])
 
     console.print(f"[dim]CSV saved to {path}[/dim]")
 
