@@ -8,4 +8,4 @@ output/reports_etf/*.csv
 
 .env
 
-output/backtest*
+output/

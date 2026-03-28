@@ -1,9 +1,9 @@
 // This Pine Script™ source code is subject to the terms of the Mozilla Public License 2.0
 // https://mozilla.org/MPL/2.0/
-// © Multiday CFD Italian Stock Validator v1.1 (tuned params 2020-2024)
+// © Multiday CFD Italian Stock Validator v1.2 (Optuna WFA tuned params)
 
 //@version=6
-indicator("ITA CFD Validator v1.1", overlay=true, max_labels_count=50, max_lines_count=50)
+indicator("ITA CFD Validator v1.2", overlay=true, max_labels_count=50, max_lines_count=50)
 
 // =============================================================================
 // INPUTS
@@ -24,7 +24,7 @@ grp_mom     = "Momentum"
 rsiLen      = input.int(14, "RSI Length", group=grp_mom)
 rsiThresh   = input.int(45, "RSI Threshold", group=grp_mom)
 mfiLen      = input.int(14, "MFI Length", group=grp_mom)
-mfiThresh   = input.int(45, "MFI Threshold", group=grp_mom)
+mfiThresh   = input.int(40, "MFI Threshold", group=grp_mom)
 
 grp_rs      = "Relative Strength"
 rsBenchmark = input.symbol("MIL:ETFMIB", "FTSE MIB Benchmark", group=grp_rs)
@@ -40,7 +40,7 @@ chandMult   = input.float(3.0, "Chandelier ATR Mult", step=0.1, group=grp_atr)
 grp_gate    = "Gates"
 vixThresh   = input.float(35.0, "VIX Threshold", group=grp_gate)
 adxLen      = input.int(14, "ADX Length", group=grp_gate)
-adxThresh   = input.float(20.0, "ADX Threshold", group=grp_gate)
+adxThresh   = input.float(15.0, "ADX Threshold", group=grp_gate)
 
 grp_entry   = "Entry"
 gapPct      = input.float(0.5, "GAP_UP Min %", step=0.1, group=grp_entry)
@@ -116,8 +116,8 @@ gate_adx = benchAdxVal >= adxThresh
 // STATUS: GO / WATCH / SKIP
 // =============================================================================
 
-goThresh    = 4
-watchThresh = 3
+goThresh    = 3
+watchThresh = 2
 
 gatesFailed = (not gate_vix ? 1 : 0) + (not gate_adx ? 1 : 0)
 
@@ -232,7 +232,7 @@ if showTable and barstate.islast
 
     // Score
     table.cell(dash, 0, 1, "Score", text_color=color.gray, text_size=size.small, text_halign=text.align_left)
-    table.cell(dash, 1, 1, str.tostring(score) + "/6", text_color=score >= 4 ? color.green : score >= 3 ? color.orange : color.red, text_size=size.small)
+    table.cell(dash, 1, 1, str.tostring(score) + "/6", text_color=score >= 3 ? color.green : score >= 2 ? color.orange : color.red, text_size=size.small)
 
     // Check 1: EMA D
     table.cell(dash, 0, 2, "EMA D (20>50)", text_color=color.gray, text_size=size.small, text_halign=text.align_left)

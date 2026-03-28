@@ -73,7 +73,7 @@ All computed via pandas-ta library on DAILY timeframe:
 2. EMA 20 > EMA 50 Weekly    → Structural trend filter
 3. MACD > Signal Line        → Momentum confirmation (12/26/9)
 4. RSI > 45                  → Momentum filter (length 14, tuned from 50)
-5. MFI > 45                  → Money Flow Index (length 14, tuned from 50)
+5. MFI > 40                  → Money Flow Index (length 14, tuned from 50→45→40)
 6. RS Line vs Benchmark      → Relative strength (20d lookback, 5d ROC)
 
 Entry timing helpers:
@@ -82,14 +82,14 @@ Entry timing helpers:
 - Opening Range              → ORB breakout via H1 data (ITA only)
 
 ## Gates (not scored, downgrade GO to WATCH)
-**ITA (2 gates):** VIX < 35 (tuned from 25), ADX on ETFMIB.MI >= 20
+**ITA (2 gates):** VIX < 35 (tuned from 25), ADX on ETFMIB.MI >= 15 (tuned from 20)
 **ETF (4 gates):** VIX < 25, Benchmark EMA health, ADX >= 20, Correlation < 0.7
 
 ## Scoring Logic
 6 checks, max score 6/6:
-- Score >= 4/6 → GO (tuned from 5)
-- Score == 3/6 → WATCH (tuned from 4)
-- Score <= 2/6 → SKIP
+- Score >= 3/6 → GO (tuned from 5→4→3 via Optuna WFA)
+- Score == 2/6 → WATCH
+- Score <= 1/6 → SKIP
 
 ## Key Rules (never change these in code)
 - All trend/momentum checks use DAILY timeframe
@@ -144,11 +144,12 @@ python optimize_optuna.py --mode us --wfa --trials 200     # US Walk-Forward (33
 | Parameter | Original | Tuned | Rationale |
 | :-- | :-- | :-- | :-- |
 | rsi_threshold | 50 | **45** | Catches early-trend entries |
-| mfi_threshold | 50 | **45** | Less restrictive money flow filter |
+| mfi_threshold | 50 | **40** | Less restrictive money flow filter (45→40 via Optuna WFA) |
 | vix_threshold | 25 | **35** | Old gate too strict, blocked good trades in moderate fear |
-| go_threshold | 5 | **4** | 5th check often lagged 1-2 days, causing missed entries |
+| adx_threshold | 20 | **15** | Mild loosening, still filters flat markets (Optuna WFA) |
+| go_threshold | 5 | **3** | Perfectly stable across all 8 WFA windows (5→4→3) |
 
-These params are applied in: `config_ita.yaml`, `pinescript/ita_cfd_validator.pine` (v1.1).
+These params are applied in: `config_ita.yaml`, `pinescript/ita_cfd_validator.pine` (v1.2).
 
 ## Backtester Architecture
 

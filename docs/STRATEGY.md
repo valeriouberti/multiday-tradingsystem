@@ -506,7 +506,7 @@ Dopo il prompt: aggiorna il Chandelier Stop su Fineco per ogni posizione aperta.
 | 2 | EMA 20 > EMA 50 | Weekly | Trend strutturale |
 | 3 | MACD > Signal | Daily | Momentum in accelerazione |
 | 4 | RSI > 45 | Daily | Forza relativa positiva (tuned da 50) |
-| 5 | MFI > 45 | Daily | Money Flow Index — flusso istituzionale (tuned da 50) |
+| 5 | MFI > 40 | Daily | Money Flow Index — flusso istituzionale (tuned 50→45→40) |
 | 6 | RS vs Benchmark | Daily | Titolo/settore batte il benchmark (20d, 5d ROC) |
 
 ### Gates
@@ -514,18 +514,18 @@ Dopo il prompt: aggiorna il Chandelier Stop su Fineco per ogni posizione aperta.
 | Gate | ITA CFD | ETF | Effetto |
 | :-- | :-- | :-- | :-- |
 | VIX < 35 (ITA) / < 25 (ETF) | ✅ | ✅ | GO → WATCH |
-| ADX >= 20 su benchmark | ✅ | ✅ | GO → WATCH |
+| ADX >= 15 (ITA) / >= 20 (ETF) su benchmark | ✅ | ✅ | GO → WATCH |
 | Benchmark Health (EMA20 > EMA50) | — | ✅ | GO → WATCH |
 | Correlazione pairwise < 0.7 | — | ✅ | Dimezza size combinato |
 
-### Score (ITA CFD — parametri tuned)
+### Score (ITA CFD — parametri Optuna WFA)
 
 | Score | Gates OK | Azione |
 | :-- | :-- | :-- |
-| 4/6, 5/6 o 6/6 | tutti OK | **GO** — prepara ordini su Fineco |
-| 4/6, 5/6 o 6/6 | almeno 1 FAIL | **WATCH** — gate ha bloccato |
-| 3/6 | qualsiasi | **WATCH** |
-| <= 2/6 | qualsiasi | **SKIP** |
+| 3/6, 4/6, 5/6 o 6/6 | tutti OK | **GO** — prepara ordini su Fineco |
+| 3/6, 4/6, 5/6 o 6/6 | almeno 1 FAIL | **WATCH** — gate ha bloccato |
+| 2/6 | qualsiasi | **WATCH** |
+| <= 1/6 | qualsiasi | **SKIP** |
 
 ### Score (ETF — parametri originali)
 
@@ -610,7 +610,7 @@ shares = min(
 5. **Chandelier Exit**: se close < Chandelier stop → EXIT
 6. **Weekend**: chiudere o ridurre 50% — CFD ha costo overnight (~0.05%/giorno)
 7. **Earnings**: mai tenere CFD aperto la notte prima degli earnings
-8. **Score <= 3/6**: skip sempre
+8. **Score <= 1/6**: skip sempre (ITA), **Score <= 2/6**: skip (ETF)
 9. **Position sizing**: usare il numero di shares dello script, mai superare
 10. **BTP-Bund spread** (ITA): widening >10bp in un giorno → chiudere bancari
 11. **EUR/USD** (ETF): EUR in rafforzamento erode rendimenti ETF con sottostante USD
@@ -624,7 +624,7 @@ shares = min(
 
 ## PineScript — TradingView
 
-Indicatore v1.1 con parametri tuned (RSI 45, MFI 45, VIX 35, GO >= 4):
+Indicatore v1.2 con parametri Optuna WFA (RSI 45, MFI 40, VIX 35, ADX 15, GO >= 3):
 
 ```
 pinescript/ita_cfd_validator.pine
@@ -767,11 +767,18 @@ Ottimizzati tramite grid search su 2020-2024 (tutti i 39 titoli FTSE MIB):
 | Parametro | Originale | Tuned | Motivazione |
 | :-- | :-- | :-- | :-- |
 | `rsi_threshold` | 50 | **45** | Cattura entry nella fase iniziale del trend |
-| `mfi_threshold` | 50 | **45** | Filtro meno restrittivo sui flussi |
+| `mfi_threshold` | 50 | **40** | Filtro meno restrittivo sui flussi (45→40 via Optuna WFA) |
 | `vix_threshold` | 25 | **35** | Gate VIX troppo stretto, bloccava trade validi in fear moderata |
-| `go_threshold` | 5 | **4** | Il 5° check spesso in ritardo di 1-2 giorni |
+| `adx_threshold` | 20 | **15** | Lieve rilassamento, filtra ancora mercati piatti (Optuna WFA) |
+| `go_threshold` | 5 | **3** | Perfettamente stabile su tutte le 8 finestre WFA (5→4→3) |
 
 Il set originale si posizionava #476/1080 combinazioni.
+
+**Validazione Optuna WFA (8 finestre OOS):**
+- Avg OOS return: +1.84% per finestra (7/8 finestre profittevoli)
+- Unica finestra negativa: 2022-H1 (guerra Ucraina + rialzo tassi)
+- GO=3 selezionato in tutte le 8 finestre (massima stabilita)
+- VIX gate ON confermato critico (protezione bear market)
 
 ### Grid Search (`optimize_params.py`)
 

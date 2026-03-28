@@ -210,7 +210,7 @@ After completing all phases, produce a comparison table:
 | Profit factor | ? | ? |
 | Sharpe ratio | ? | ? |
 | Max drawdown | ? | ? |
-| Best params | RSI=45,MFI=45,VIX=35,GO=4 | ? |
+| Best params | RSI=45,MFI=40,VIX=35,ADX=15,GO=3 | ? |
 | WFA efficiency | ? | ? |
 
 ---
