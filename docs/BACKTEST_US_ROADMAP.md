@@ -16,8 +16,8 @@ Same 6-check + 2-gate system as ITA CFD, applied to top 100 S&P 500 stocks by li
 | Capital | $1,000 |
 | Leverage | 5:1 (Fineco ESMA CFD) |
 | Hold period | 3-7 sessions |
-| Checks | EMA D, EMA W, MACD, RSI > 45, MFI > 45, RS vs SPY |
-| Gates | VIX < 30, ADX on SPY >= 20 |
+| Checks | EMA D, EMA W, MACD, RSI > 40, MFI > 45, RS vs SPY |
+| Gates | VIX < 30, ADX on SPY >= 10 |
 | GO threshold | >= 4/6 |
 | SL | Close - ATR(14) × 1.5 |
 | TP1 | Close + ATR(14) × 1.5 (close 50%, move SL to BE) |

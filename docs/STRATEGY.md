@@ -624,16 +624,28 @@ shares = min(
 
 ## PineScript — TradingView
 
-Indicatore v1.2 con parametri Optuna WFA (RSI 45, MFI 40, VIX 35, ADX 15, GO >= 3):
+**ITA CFD** — Indicatore v1.2 (RSI 45, MFI 40, VIX 35, ADX 15, GO >= 3):
 
 ```
 pinescript/ita_cfd_validator.pine
 ```
 
-Setup TradingView:
+Setup TradingView ITA:
 1. Apri un titolo italiano (`MIL:UCG`) o ETF (`MIL:DFND`)
 2. Pine Editor → incolla → Add to Chart
 3. Configura benchmark: `MIL:ETFMIB` (ITA) o `MIL:CSSPX` (ETF)
+4. Alert: tasto destro → "Add Alert" per GO/WATCH/Chandelier Exit
+
+**US CFD** — Indicatore v1.0 (RSI 40, MFI 45, VIX 30, ADX 10, GO >= 4):
+
+```
+pinescript/us_cfd_validator.pine
+```
+
+Setup TradingView US:
+1. Apri un titolo US (`NASDAQ:AAPL`, `NYSE:JPM`)
+2. Pine Editor → incolla → Add to Chart
+3. Benchmark: `AMEX:SPY` (default)
 4. Alert: tasto destro → "Add Alert" per GO/WATCH/Chandelier Exit
 
 ---
@@ -779,6 +791,24 @@ Il set originale si posizionava #476/1080 combinazioni.
 - Unica finestra negativa: 2022-H1 (guerra Ucraina + rialzo tassi)
 - GO=3 selezionato in tutte le 8 finestre (massima stabilita)
 - VIX gate ON confermato critico (protezione bear market)
+
+### Parametri Tuned (US CFD)
+
+Ottimizzati tramite Optuna WFA su 2019-2024 (33 titoli sector-sample S&P 500):
+
+| Parametro | Default | Tuned | Motivazione |
+| :-- | :-- | :-- | :-- |
+| `rsi_threshold` | 45 | **40** | RSI 35-45 dominante nelle finestre WFA |
+| `mfi_threshold` | 45 | **45** | Stabile, nel mezzo del range WFA |
+| `vix_threshold` | 30 | **30** | VIX gate confermato necessario (2022-H1) |
+| `adx_threshold` | 20 | **10** | Selezionato consistentemente in tutte le finestre |
+| `go_threshold` | 4 | **4** | Moda WFA (5/8 finestre usano GO=4 o 5) |
+
+**Validazione Optuna WFA (8 finestre OOS):**
+- Avg OOS return: +2.27% per finestra (7/8 finestre profittevoli)
+- Unica finestra negativa: 2022-H1 (-4.59%, meno grave di ITA -6.94%)
+- US performa meglio con drawdown inferiori grazie alla diversificazione settoriale
+- Total OOS PnL: +$5,980
 
 ### Grid Search (`optimize_params.py`)
 

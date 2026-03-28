@@ -36,7 +36,7 @@ project/
 │   ├── metrics.py          ← Performance analytics (Sharpe, Sortino, Calmar, drawdown)
 │   └── plots.py            ← Equity curve + trade markers (matplotlib)
 ├── main_us.py              ← Entry point: US S&P 500 CFD strategy (--tickers override)
-├── config_us.yaml          ← US stocks config (top 100 S&P 500 by liquidity)
+├── config_us.yaml          ← US stocks config (top 100 S&P 500, Optuna WFA tuned)
 ├── validator_us/
 │   ├── __init__.py
 │   ├── indicators.py       ← US-specific: position sizing with leverage (USD)
@@ -58,7 +58,9 @@ project/
 │   ├── optimization/       ← Grid search results CSV
 │   └── walk_forward/       ← Walk-forward analysis results CSV
 ├── docs/
-├── pinescript/             ← TradingView indicator (v1.1, tuned params)
+├── pinescript/             ← TradingView indicators
+│   ├── ita_cfd_validator.pine  ← ITA CFD v1.2 (Optuna WFA tuned)
+│   └── us_cfd_validator.pine   ← US CFD v1.0 (Optuna WFA tuned)
 └── requirements.txt
 ```
 
@@ -72,8 +74,8 @@ All computed via pandas-ta library on DAILY timeframe:
 1. EMA 20 > EMA 50 Daily     → Trend direction
 2. EMA 20 > EMA 50 Weekly    → Structural trend filter
 3. MACD > Signal Line        → Momentum confirmation (12/26/9)
-4. RSI > 45                  → Momentum filter (length 14, tuned from 50)
-5. MFI > 40                  → Money Flow Index (length 14, tuned from 50→45→40)
+4. RSI > 45 (ITA) / > 40 (US) → Momentum filter (length 14, tuned from 50)
+5. MFI > 40 (ITA) / > 45 (US) → Money Flow Index (length 14, tuned from 50)
 6. RS Line vs Benchmark      → Relative strength (20d lookback, 5d ROC)
 
 Entry timing helpers:
@@ -83,13 +85,14 @@ Entry timing helpers:
 
 ## Gates (not scored, downgrade GO to WATCH)
 **ITA (2 gates):** VIX < 35 (tuned from 25), ADX on ETFMIB.MI >= 15 (tuned from 20)
+**US (2 gates):** VIX < 30, ADX on SPY >= 10 (tuned from 20 via Optuna WFA)
 **ETF (4 gates):** VIX < 25, Benchmark EMA health, ADX >= 20, Correlation < 0.7
 
 ## Scoring Logic
 6 checks, max score 6/6:
-- Score >= 3/6 → GO (tuned from 5→4→3 via Optuna WFA)
-- Score == 2/6 → WATCH
-- Score <= 1/6 → SKIP
+- **ITA:** Score >= 3/6 → GO (tuned 5→4→3 via Optuna WFA), 2/6 → WATCH, <= 1/6 → SKIP
+- **US:** Score >= 4/6 → GO, 3/6 → WATCH, <= 2/6 → SKIP
+- **ETF:** Score >= 5/6 → GO, 4/6 → WATCH, <= 3/6 → SKIP
 
 ## Key Rules (never change these in code)
 - All trend/momentum checks use DAILY timeframe
