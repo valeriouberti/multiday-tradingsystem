@@ -6,31 +6,10 @@ from rich.console import Console
 from rich.table import Table
 from rich.text import Text
 
+from shared.report_utils import check_cell as _check_cell
+from shared.report_utils import status_text as _status_text
+
 console = Console()
-
-
-def _check_cell(check: dict) -> Text:
-    if check["passed"]:
-        icon, style = "\u2705", "green"
-    else:
-        icon, style = "\u274c", "red"
-    display = check.get("display", "")
-    text = f"{icon} {display}" if display else icon
-    return Text(text, style=style)
-
-
-def _status_text(result: dict) -> Text:
-    status = result["status"]
-    gate_reasons = result.get("gate_reasons", [])
-    if status == "GO":
-        return Text("\u2705 GO", style="bold green")
-    elif status == "WATCH":
-        label = "WATCH"
-        if gate_reasons:
-            label += f" ({','.join(gate_reasons)})"
-        return Text(f"\u26a0\ufe0f  {label}", style="bold yellow")
-    else:
-        return Text("\u274c SKIP", style="bold red")
 
 
 def print_report(results: list[dict], config: dict, correlations: dict) -> None:

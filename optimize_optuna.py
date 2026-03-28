@@ -35,42 +35,13 @@ from backtester.data import fetch_historical, fetch_weekly_historical, warmup_st
 from backtester.engine import run_backtest
 from backtester.metrics import compute_metrics
 
-# --- Ticker universes ---
-
-FTSEMIB_TICKERS = [
-    "A2A.MI", "AMP.MI", "AZM.MI", "BC.MI", "BGN.MI", "BMED.MI", "BPE.MI",
-    "BZU.MI", "CPR.MI", "DIA.MI", "ENEL.MI", "ENI.MI", "ERG.MI", "FBK.MI",
-    "G.MI", "HER.MI", "IG.MI", "INW.MI", "IP.MI", "ISP.MI", "IVG.MI",
-    "ITW.MI", "LDO.MI", "MB.MI", "MONC.MI", "NEXI.MI", "PIRC.MI", "PRY.MI",
-    "PST.MI", "RACE.MI", "REC.MI", "SRG.MI", "STLAM.MI", "STMMI.MI",
-    "TEN.MI", "TIT.MI", "TRN.MI", "UCG.MI", "UNI.MI",
-]
-
-# Sector-sampled S&P 500 (3 per GICS sector = 33 stocks)
-SP500_SAMPLE = [
-    # Tech
-    "AAPL", "MSFT", "NVDA",
-    # Financials
-    "JPM", "GS", "BLK",
-    # Health Care
-    "UNH", "LLY", "JNJ",
-    # Consumer Disc.
-    "TSLA", "HD", "AMZN",
-    # Industrials
-    "GE", "CAT", "RTX",
-    # Energy
-    "XOM", "CVX", "COP",
-    # Communication
-    "NFLX", "GOOGL", "META",
-    # Consumer Staples
-    "PG", "KO", "COST",
-    # Utilities
-    "NEE", "SO", "DUK",
-    # Materials
-    "LIN", "FCX", "SHW",
-    # Real Estate
-    "PLD", "AMT", "EQIX",
-]
+def _load_tickers(config_path: str, use_sample: bool = False) -> list[str]:
+    """Load tickers from config YAML (single source of truth)."""
+    with open(config_path) as f:
+        cfg = yaml.safe_load(f)
+    if use_sample and "optimization_sample" in cfg:
+        return cfg["optimization_sample"]
+    return cfg["tickers"]
 
 # Walk-Forward windows (24m train / 6m test, rolling 6m)
 WFA_WINDOWS = [
@@ -96,14 +67,13 @@ MODE_CONFIG = {
     "ita": {
         "config_path": "config_ita.yaml",
         "benchmark": "ETFMIB.MI",
-        "tickers": FTSEMIB_TICKERS,
         "bt_mode": "ita",
     },
     "us": {
         "config_path": "config_us.yaml",
         "benchmark": "SPY",
-        "tickers": SP500_SAMPLE,
         "bt_mode": "ita",  # same CFD engine mode (leverage)
+        "use_sample": True,  # use optimization_sample from config
     },
 }
 
@@ -423,7 +393,7 @@ def run_simple_optimization(
     start = "2020-01-01"
     end = "2024-12-31"
     ws = warmup_start(start, extra_bars=100)
-    tickers = mc["tickers"]
+    tickers = _load_tickers(mc["config_path"], mc.get("use_sample", False))
 
     console.print(f"\n[bold]Optuna Optimization — {mode.upper()} CFD[/bold]")
     console.print(f"Period: {start} to {end}")
@@ -629,7 +599,7 @@ def run_wfa_optimization(
     data_start = "2018-01-01"
     data_end = "2024-12-31"
     ws = warmup_start(data_start, extra_bars=100)
-    tickers = mc["tickers"]
+    tickers = _load_tickers(mc["config_path"], mc.get("use_sample", False))
 
     console.print(f"\n[bold]Walk-Forward Analysis (Optuna) — {mode.upper()} CFD[/bold]")
     console.print(f"Windows: {len(WFA_WINDOWS)} (24m train / 6m test)")

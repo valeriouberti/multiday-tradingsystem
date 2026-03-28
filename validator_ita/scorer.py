@@ -11,7 +11,7 @@ from shared.indicators import (
     get_chandelier_stop,
     get_tp1_price,
 )
-from validator_ita.indicators import get_position_size
+from shared.position_sizing import get_cfd_position_size as get_position_size
 
 
 def score_ticker(ticker: str, cfg: dict, gates: dict) -> dict:

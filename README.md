@@ -1,175 +1,13 @@
-# Multiday Trading System — ITA CFD + ETF Settoriali
+# Multiday Trading System — ITA CFD + US CFD + ETF Settoriali
 
-Due strategie su **Borsa Italiana** via **Fineco**. Selezione titoli via AI
-(Perplexity Pro, prompt schedulati). Validazione tecnica con Python.
-Holding period: 3-7 sessioni.
+Three swing trading strategies on **Fineco**, validated with Python technical screening
+and AI-driven fundamental analysis (Perplexity Pro). Holding period: 3-7 sessions.
 
-| Strategia | Strumento | Leva | Capitale | Benchmark |
+| Strategy | Instrument | Leverage | Capital | Benchmark |
 | :-- | :-- | :-- | :-- | :-- |
-| **ITA CFD** | CFD azioni FTSE MIB | 5:1 ESMA | €1.000 | ETFMIB.MI |
-| **ETF Settoriali** | Cash ETF Borsa Italiana | 1:1 | €4.000 | CSSPX.MI |
-
----
-
-## Struttura del Repo
-
-```
-project/
-├── main_ita.py             ← Entry point: ITA CFD
-├── main_etf.py             ← Entry point: ETF settoriali
-├── config_ita.yaml         ← Ticker italiani + parametri (edit giornaliero)
-├── config_etf.yaml         ← ETF settoriali + parametri (edit giornaliero)
-├── shared/
-│   ├── data.py             ← yfinance data fetching
-│   ├── indicators.py       ← Indicatori comuni (EMA, MACD, RSI, MFI, RS, gates)
-│   └── telegram.py         ← Notifiche Telegram
-├── validator_ita/
-│   ├── indicators.py       ← Position sizing con leva
-│   ├── scorer.py           ← 6 check + 2 gates
-│   └── report.py           ← Report Fineco CFD (EUR)
-├── validator_etf/
-│   ├── indicators.py       ← Position sizing cash + bench health + correlazione
-│   ├── scorer.py           ← 6 check + 4 gates
-│   └── report.py           ← Report Fineco ETF (EUR)
-├── scripts/
-│   └── update_tickers.py   ← Helper CI per aggiornare config YAML
-├── .github/workflows/
-│   ├── ita-validator.yml   ← GitHub Actions: 8:30 CET + workflow_dispatch
-│   └── etf-validator.yml   ← GitHub Actions: 14:00 CET + workflow_dispatch
-├── docs/
-│   └── STRATEGY.md         ← Strategia completa + prompt Perplexity
-├── pinescript/
-│   └── ita_cfd_validator.pine  ← Indicatore TradingView (H1)
-└── output/
-    ├── reports_ita/        ← CSV giornalieri ITA
-    └── reports_etf/        ← CSV giornalieri ETF
-```
-
----
-
-## Workflow Giornaliero
-
-| Ora CET | Strategia | Azione |
-| :-- | :-- | :-- |
-| **07:30** | Entrambe | Macro veto (Investing.com) |
-| **07:30** | ETF | Prompt 0 — overnight check settori di ieri |
-| **08:00** | ITA CFD | Prompt 1 + 2 (schedulati Perplexity) |
-| **08:30** | ITA CFD | `python main_ita.py` → scorecard + livelli Fineco |
-| **09:00** | ITA CFD | Entry su Fineco (GAP_UP / PULLBACK / ORB / BONE_ZONE) |
-| **13:00** | ETF | Prompt 1 + 2 (schedulati, pausa pranzo) |
-| **13:20** | ETF | `python main_etf.py` → scorecard + livelli Fineco |
-| **14:30-16:30** | ETF | Entry su Fineco (buy a mercato) |
-| **17:00** | Entrambe | Deadline — no entry dopo |
-| **22:00** | Entrambe | Prompt 3 — exit review + aggiorna Chandelier Stop |
-
-Tempo totale: ~40 minuti/giorno. Dettaglio prompt in [docs/STRATEGY.md](docs/STRATEGY.md).
-
----
-
-## Indicatori Tecnici
-
-**6 check scored (comuni a entrambe):**
-
-| # | Check | Timeframe | Logica |
-| :-- | :-- | :-- | :-- |
-| 1 | EMA 20 > EMA 50 | Daily | Trend rialzista |
-| 2 | EMA 20 > EMA 50 | Weekly | Trend strutturale |
-| 3 | MACD > Signal | Daily | Momentum in accelerazione |
-| 4 | RSI > 50 | Daily | Forza relativa positiva |
-| 5 | MFI > 50 | Daily | Money Flow Index |
-| 6 | RS vs Benchmark | Daily | Batte il benchmark (20d, 5d ROC) |
-
-**Gates (non scored, degradano GO → WATCH):**
-
-| Gate | ITA | ETF |
-| :-- | :-- | :-- |
-| VIX < 25 | ✅ | ✅ |
-| ADX >= 20 su benchmark | ✅ | ✅ |
-| Benchmark EMA20 > EMA50 | — | ✅ |
-| Correlazione pairwise < 0.7 | — | ✅ |
-
-**Score:**
-- 5-6/6 + gates OK → **GO**
-- 5-6/6 + gate fallito → **WATCH**
-- 4/6 → **WATCH**
-- ≤ 3/6 → **SKIP**
-
----
-
-## Gestione Posizione
-
-| Livello | Calcolo | Azione |
-| :-- | :-- | :-- |
-| Stop Loss | Close - ATR(14) × 1.5 | Inserire subito dopo entry |
-| TP1 | Close + ATR(14) × 1.5 | Chiudi 50%, sposta stop a breakeven |
-| Chandelier Exit | Highest(H,22) - ATR(14) × 3 | Trailing stop, aggiornare ogni sera |
-
----
-
-## Entry Methods (ITA CFD)
-
-| Metodo | Finestra | Condizione |
-| :-- | :-- | :-- |
-| GAP_UP | 09:00-09:15 | Gap >= 0.5% sopra EMA20 + max giorno precedente |
-| PULLBACK | 09:15+ | Rimbalzo su EMA20 Daily |
-| ORB | 09:15+ | Breakout Opening Range H1, volume >= 1.5x |
-| BONE_ZONE | 09:15+ | Dip in zona EMA 9-20, candela verde sopra EMA9 |
-
-Per gli ETF: senza dati real-time, si compra **a mercato nel pomeriggio** (14:30-16:30 CET) se GO.
-
----
-
-## Telegram
-
-Il report viene inviato automaticamente su Telegram dopo ogni esecuzione
-(locale o CI). Zero dipendenze aggiuntive (usa `urllib`).
-
-**Setup (2 min):**
-1. Telegram → `@BotFather` → `/newbot` → copia il token
-2. Invia un messaggio al bot
-3. Apri `https://api.telegram.org/bot<TOKEN>/getUpdates` → copia `chat_id`
-4. Aggiungi al tuo shell:
-```bash
-export TELEGRAM_BOT_TOKEN="123456:ABC-DEF..."
-export TELEGRAM_CHAT_ID="987654321"
-```
-
-Per GitHub Actions: aggiungi come secrets (`TELEGRAM_BOT_TOKEN`, `TELEGRAM_CHAT_ID`).
-
-Se non configurato, nessun errore — il report viene solo stampato a terminale.
-
----
-
-## Automazione (GitHub Actions)
-
-| Workflow | Cron | Trigger manuale |
-| :-- | :-- | :-- |
-| ITA Validator | 8:30 CEST (Mon-Fri) | GitHub app → Actions → Run workflow |
-| ETF Validator | 14:00 CEST (Mon-Fri) | GitHub app → Actions → Run workflow |
-
-Inserisci i tickers nel campo input (es. `STLAM.MI,FCT.MI,ENI.MI`). Il workflow
-aggiorna il config, esegue lo script, salva il CSV come artifact, e invia il
-report su Telegram.
-
-Gratuito: 2000 min/mese su repo privato, illimitato su pubblico.
-
----
-
-## TradingView
-
-Indicatore PineScript per validazione visiva su grafico **H1**:
-
-```
-pinescript/ita_cfd_validator.pine
-```
-
-- 6 check scored + 2 gates nella dashboard
-- Livelli Stop / TP1 / Chandelier sul grafico
-- Segnali entry (GAP_UP, BONE_ZONE, PULLBACK, ORB) con label
-- Alert configurabili per GO/WATCH/Chandelier Exit
-- Background verde (GO) / arancione (WATCH)
-
-Setup: apri `MIL:UCG` (ITA) o `MIL:DFND` (ETF) → Pine Editor → Add to Chart.
+| **ITA CFD** | CFD on FTSE MIB stocks | 5:1 ESMA | €1,000 | ETFMIB.MI |
+| **US CFD** | CFD on S&P 500 stocks | 5:1 ESMA | $1,000 | SPY |
+| **ETF Settoriali** | Cash ETF on Borsa Italiana | 1:1 | €4,000 | CSSPX.MI |
 
 ---
 
@@ -181,35 +19,203 @@ python -m venv venv
 source venv/bin/activate
 pip install -r requirements.txt
 
-# Opzionale: Telegram
+# Optional: Telegram notifications
 export TELEGRAM_BOT_TOKEN="..."
 export TELEGRAM_CHAT_ID="..."
 
-# Esegui
-python main_ita.py    # ITA CFD
-python main_etf.py    # ETF settoriali
+# Daily validation
+python main_ita.py                                    # ITA — all 39 FTSE MIB stocks
+python main_ita.py --tickers "ISP.MI,UCG.MI,LDO.MI"  # ITA — specific tickers
+python main_us.py                                     # US — top 100 S&P 500 stocks
+python main_us.py --tickers "AAPL,MSFT,NVDA"          # US — specific tickers
+python main_etf.py                                    # ETF — sector ETFs
 ```
 
 ---
 
-## Regole Operative Fisse
+## How It Works
 
-1. **Macro Veto**: FOMC / CPI / NFP / ECB / EU CPI → nessun trade
-2. **Gates**: gate fallito degrada GO → WATCH automaticamente
-3. **No entry dopo le 17:00 CET**
-4. **Stop Loss immediato**: inserire nel broker appena si entra
-5. **Chandelier Exit**: se close < trailing stop → EXIT
-6. **Weekend**: chiudere o ridurre 50% (CFD ha costo overnight)
-7. **Earnings**: mai tenere CFD aperto la notte prima
-8. **Score ≤ 3/6**: skip sempre
-9. **Position sizing**: usare lo script, mai superare
-10. **BTP-Bund** (ITA): widening >10bp → chiudere bancari
-11. **EUR/USD** (ETF): EUR in rafforzamento erode rendimenti
-12. **Max posizioni**: ITA max 3 CFD, ETF max 3
+### 6 Technical Checks (scored)
+
+| # | Check | Timeframe | Logic |
+| :-- | :-- | :-- | :-- |
+| 1 | EMA 20 > EMA 50 | Daily | Uptrend direction |
+| 2 | EMA 20 > EMA 50 | Weekly | Structural trend filter |
+| 3 | MACD > Signal | Daily | Momentum confirmation |
+| 4 | RSI > threshold | Daily | Momentum filter |
+| 5 | MFI > threshold | Daily | Money Flow Index |
+| 6 | RS vs Benchmark | Daily | Relative strength (20d lookback, 5d ROC) |
+
+### Gates (non-scored, downgrade GO → WATCH)
+
+| Gate | ITA | US | ETF |
+| :-- | :-- | :-- | :-- |
+| VIX < threshold | < 35 | < 30 | < 25 |
+| ADX >= threshold on benchmark | >= 15 | >= 10 | >= 20 |
+| Benchmark EMA health | — | — | yes |
+| Pairwise correlation < 0.7 | — | — | yes |
+
+### Scoring
+
+| Strategy | GO | WATCH | SKIP |
+| :-- | :-- | :-- | :-- |
+| ITA CFD | >= 3/6 + gates OK | >= 2/6 or gate fail | <= 1/6 |
+| US CFD | >= 4/6 + gates OK | >= 3/6 or gate fail | <= 2/6 |
+| ETF | >= 5/6 + gates OK | >= 4/6 or gate fail | <= 3/6 |
+
+### Position Management
+
+| Level | Calculation | Action |
+| :-- | :-- | :-- |
+| Stop Loss | Close - ATR(14) × 1.5 | Set immediately after entry |
+| TP1 | Close + ATR(14) × 1.5 | Close 50%, move stop to breakeven |
+| Chandelier Exit | Highest(H,22) - ATR(14) × 3 | Trailing stop, update nightly |
 
 ---
 
-## Dipendenze
+## Backtesting & Optimization
+
+```bash
+# Single ticker backtest
+python backtest.py --ticker ISP.MI --start 2023-01-01 --end 2024-12-31
+
+# Full FTSE MIB universe backtest
+python backtest_ftsemib.py
+
+# Optuna Bayesian optimization
+python optimize_optuna.py --mode ita --trials 300          # ITA single-period
+python optimize_optuna.py --mode us --trials 300           # US single-period
+python optimize_optuna.py --mode ita --wfa --trials 200    # ITA Walk-Forward Analysis
+python optimize_optuna.py --mode us --wfa --trials 200     # US Walk-Forward Analysis
+```
+
+**Optuna** uses TPE (Tree-structured Parzen Estimator) with precomputed indicators
+(~10x faster than grid search). Walk-Forward Analysis validates parameter robustness
+across 8 rolling windows (24-month train / 6-month test).
+
+### Tuned Parameters
+
+| Parameter | ITA | US | Source |
+| :-- | :-- | :-- | :-- |
+| RSI threshold | 45 | 40 | Optuna WFA |
+| MFI threshold | 40 | 45 | Optuna WFA |
+| VIX gate | 35 | 30 | Optuna WFA |
+| ADX gate | 15 | 10 | Optuna WFA |
+| GO threshold | 3 | 4 | Optuna WFA |
+
+---
+
+## Entry Methods (CFD only)
+
+| Method | Window | Condition |
+| :-- | :-- | :-- |
+| GAP_UP | First 15 min | Gap >= 0.5% above EMA20 + prev day high |
+| PULLBACK | After 15 min | Bounce on EMA20 Daily |
+| ORB | After 15 min | Opening Range Breakout H1, volume >= 1.5x |
+| BONE_ZONE | After 15 min | Dip into EMA 9-20 zone, green candle above EMA9 |
+
+ETFs: buy at market in the afternoon (14:30-16:30 CET) if GO.
+
+---
+
+## TradingView (PineScript)
+
+Two indicators for visual validation on H1 charts:
+
+| Indicator | File | Params |
+| :-- | :-- | :-- |
+| ITA CFD v1.2 | `pinescript/ita_cfd_validator.pine` | RSI 45, MFI 40, VIX 35, ADX 15, GO >= 3 |
+| US CFD v1.0 | `pinescript/us_cfd_validator.pine` | RSI 40, MFI 45, VIX 30, ADX 10, GO >= 4 |
+
+Features: 6 checks + gates dashboard, SL/TP1/Chandelier levels on chart,
+entry signal labels, configurable alerts.
+
+---
+
+## Telegram
+
+Reports are sent automatically via Telegram after each execution (local or CI).
+Zero extra dependencies (uses `urllib`).
+
+**Setup:** Create bot via `@BotFather`, set `TELEGRAM_BOT_TOKEN` and `TELEGRAM_CHAT_ID`
+as env vars (local) or GitHub secrets (CI).
+
+---
+
+## Automation (GitHub Actions)
+
+| Workflow | Schedule (CEST) | Trigger |
+| :-- | :-- | :-- |
+| ITA Validator | 08:30 Mon-Fri | Schedule + workflow_dispatch |
+| US Validator | 13:15 Mon-Fri | Schedule + workflow_dispatch |
+| ETF Validator | 14:00 Mon-Fri | Schedule + workflow_dispatch |
+
+All workflows accept `--tickers` input for manual runs. Reports are saved as artifacts
+and sent via Telegram.
+
+---
+
+## Project Structure
+
+```
+project/
+├── main_ita.py             ← ITA CFD entry point (39 FTSE MIB stocks)
+├── main_us.py              ← US CFD entry point (100 S&P 500 stocks)
+├── main_etf.py             ← ETF entry point (sector ETFs)
+├── config_ita.yaml         ← ITA config (tickers + tuned params)
+├── config_us.yaml          ← US config (tickers + optimization sample)
+├── config_etf.yaml         ← ETF config (tickers + params)
+├── shared/
+│   ├── data.py             ← yfinance data fetching with cache
+│   ├── indicators.py       ← Common indicators (EMA, MACD, RSI, MFI, RS, gates)
+│   ├── position_sizing.py  ← CFD + ETF position sizing
+│   ├── report_utils.py     ← Shared Rich formatting helpers
+│   └── telegram.py         ← Telegram notifications
+├── validator_ita/
+│   ├── scorer.py           ← 6 checks + 2 gates scorer
+│   └── report.py           ← Rich table + CSV (EUR, Fineco CFD)
+├── validator_us/
+│   ├── scorer.py           ← 6 checks + 2 gates scorer
+│   └── report.py           ← Rich table + CSV (USD, Fineco CFD)
+├── validator_etf/
+│   ├── indicators.py       ← ETF-specific: bench health + correlations
+│   ├── scorer.py           ← 6 checks + 4 gates scorer
+│   └── report.py           ← Rich table + CSV (EUR, Fineco cash)
+├── backtester/
+│   ├── data.py             ← Historical data fetching with warmup
+│   ├── signals.py          ← Vectorized signal generation
+│   ├── engine.py           ← Bar-by-bar simulation (SL/TP1/Chandelier)
+│   ├── metrics.py          ← Performance analytics (Sharpe, Sortino, Calmar)
+│   └── plots.py            ← Equity curve + trade markers
+├── backtest.py             ← CLI: single-ticker backtest
+├── backtest_ftsemib.py     ← Full FTSE MIB universe backtest
+├── optimize_optuna.py      ← Optuna Bayesian optimization (ITA + US)
+├── scripts/
+│   └── update_tickers.py   ← CI helper: update tickers in YAML
+├── .github/workflows/
+│   ├── ita-validator.yml   ← 08:30 CEST Mon-Fri
+│   ├── us-validator.yml    ← 13:15 CEST Mon-Fri
+│   └── etf-validator.yml   ← 14:00 CEST Mon-Fri
+├── docs/
+│   ├── STRATEGY.md         ← Strategy overview + shared rules
+│   ├── STRATEGY_ITA.md     ← ITA prompts, params, tickers
+│   ├── STRATEGY_US.md      ← US prompts, params, universe
+│   ├── STRATEGY_ETF.md     ← ETF prompts, gates, ETF list
+│   └── BACKTEST_US_ROADMAP.md
+├── pinescript/
+│   ├── ita_cfd_validator.pine  ← TradingView ITA (v1.2)
+│   └── us_cfd_validator.pine   ← TradingView US (v1.0)
+└── output/
+    ├── reports_ita/        ← Daily CSV reports (ITA)
+    ├── reports_us/         ← Daily CSV reports (US)
+    ├── reports_etf/        ← Daily CSV reports (ETF)
+    ├── optimization_ita/   ← Optuna results (ITA)
+    └── optimization_us/    ← Optuna results (US)
+```
+
+---
+
+## Dependencies
 
 ```
 yfinance>=0.2.40
@@ -217,4 +223,17 @@ pandas-ta>=0.3.14b
 pandas>=2.0
 pyyaml>=6.0
 rich>=13.0
+matplotlib>=3.7
+python-dotenv==1.0.1
+optuna>=3.0
 ```
+
+---
+
+## Documentation
+
+- [Strategy Overview](docs/STRATEGY.md) — Daily workflow, technical details, operative rules
+- [ITA CFD Strategy](docs/STRATEGY_ITA.md) — Perplexity prompts, tuned params, ticker reference
+- [US CFD Strategy](docs/STRATEGY_US.md) — US prompts, tuned params, S&P 500 universe
+- [ETF Strategy](docs/STRATEGY_ETF.md) — Sector rotation prompts, ETF list
+- [US Backtest Roadmap](docs/BACKTEST_US_ROADMAP.md) — US backtesting phases

@@ -1,4 +1,3 @@
-import pandas as pd
 import pandas_ta as ta
 
 from shared.data import get_daily
@@ -56,30 +55,3 @@ def check_correlations(tickers: list[str], cfg: dict) -> dict:
     }
 
 
-def get_position_size(df: pd.DataFrame, cfg: dict) -> int:
-    """Risk-based position sizing, capped by available capital (no leverage).
-
-    position_size = min(
-        (capital * risk_pct) / (ATR * multiplier),   # risk-based
-        (capital * max_capital_pct) / price            # capital cap
-    )
-    """
-    ps_cfg = cfg.get("position_sizing", {})
-    capital = ps_cfg.get("capital", 4000)
-    risk_pct = ps_cfg.get("risk_per_trade", 0.015)
-    max_cap_pct = ps_cfg.get("max_capital_pct", 0.40)
-    atr = ta.atr(
-        df["High"], df["Low"], df["Close"], length=cfg["strategy"]["atr_length"]
-    )
-    if atr is None:
-        return 0
-    stop_distance = float(atr.iloc[-1]) * cfg["strategy"]["atr_multiplier"]
-    if stop_distance <= 0:
-        return 0
-    risk_amount = capital * risk_pct
-    risk_shares = int(risk_amount / stop_distance)
-    price = float(df["Close"].iloc[-1])
-    if price <= 0:
-        return 0
-    max_shares = int((capital * max_cap_pct) / price)
-    return min(risk_shares, max_shares)

@@ -17,53 +17,8 @@ from backtester.engine import run_backtest
 from backtester.metrics import compute_metrics, save_trades_csv
 from backtester.signals import compute_all_signals
 
-# All FTSE MIB constituents with valid yfinance data
-FTSEMIB_TICKERS = [
-    "A2A.MI",
-    "AMP.MI",
-    "AZM.MI",
-    "BC.MI",
-    "BGN.MI",
-    "BMED.MI",
-    "BPE.MI",
-    "BZU.MI",
-    "CPR.MI",
-    "DIA.MI",
-    "ENEL.MI",
-    "ENI.MI",
-    "ERG.MI",
-    "FBK.MI",
-    "G.MI",
-    "HER.MI",
-    "IG.MI",
-    "INW.MI",
-    "IP.MI",
-    "ISP.MI",
-    "IVG.MI",
-    "ITW.MI",
-    "LDO.MI",
-    "MB.MI",
-    "MONC.MI",
-    "NEXI.MI",
-    "PIRC.MI",
-    "PRY.MI",
-    "PST.MI",
-    "RACE.MI",
-    "REC.MI",
-    "SRG.MI",
-    "STLAM.MI",
-    "STMMI.MI",
-    "TEN.MI",
-    "TIT.MI",
-    "TRN.MI",
-    "UCG.MI",
-    "UNI.MI",
-]
-
 START = "2020-01-01"
 END = "2024-12-31"
-# START = "2024-01-01"
-# END = datetime.now().strftime("%Y-%m-%d")
 CONFIG_PATH = "config_ita.yaml"
 OUTPUT_DIR = "output/backtest_ftsemib"
 
@@ -83,7 +38,8 @@ def main() -> None:
     console.print(
         f"Capital: EUR {cfg['position_sizing']['capital']} | Leverage: {cfg['position_sizing'].get('leverage', 1)}x"
     )
-    console.print(f"Tickers: {len(FTSEMIB_TICKERS)}\n")
+    tickers = cfg["tickers"]
+    console.print(f"Tickers: {len(tickers)}\n")
 
     # Fetch shared data once
     bench_daily = fetch_historical(benchmark, ws, END)
@@ -91,8 +47,8 @@ def main() -> None:
 
     results = []
 
-    for i, ticker in enumerate(FTSEMIB_TICKERS, 1):
-        console.print(f"  [{i}/{len(FTSEMIB_TICKERS)}] {ticker}...", end=" ")
+    for i, ticker in enumerate(tickers, 1):
+        console.print(f"  [{i}/{len(tickers)}] {ticker}...", end=" ")
 
         try:
             df_daily = fetch_historical(ticker, ws, END)

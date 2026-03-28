@@ -1,0 +1,48 @@
+# US S&P 500 CFD Validator — runs at 13:15 CET (11:15 UTC summer / 12:15 UTC winter)
+# Trigger manually from GitHub app with tickers, or on schedule with full config.
+#
+# Cron uses UTC. Set to 11:15 UTC = 13:15 CEST (summer). In winter runs at 12:15 CET (1h early, still fine).
+
+name: US Validator
+
+on:
+  schedule:
+    - cron: "15 11 * * 1-5"   # Mon-Fri 11:15 UTC → 13:15 CEST
+  workflow_dispatch:
+    inputs:
+      tickers:
+        description: "Tickers comma-separated (e.g. AAPL,MSFT,NVDA)"
+        required: false
+        type: string
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    env:
+      TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+      TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: "pip"
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Run US validator
+        run: |
+          if [ -n "${{ github.event.inputs.tickers }}" ]; then
+            python main_us.py --config config_us.yaml --tickers "${{ github.event.inputs.tickers }}"
+          else
+            python main_us.py --config config_us.yaml
+          fi
+
+      - name: Upload report CSV
+        uses: actions/upload-artifact@v4
+        with:
+          name: us-report-${{ github.run_id }}
+          path: output/reports_us/*.csv
+          retention-days: 30

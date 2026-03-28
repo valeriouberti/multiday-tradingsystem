@@ -94,13 +94,9 @@ PARAM_GRID = {
 
 **Key difference from ITA:** Add RSI=40 to the grid (US momentum may start earlier than Borsa Italiana).
 
-**Implementation:**
-- Create `optimize_params_us.py` (mirror `optimize_params.py`)
-- Use the 33 sector-sample stocks (not all 100) for speed
-- Training period: 2020-01-01 to 2024-12-31
-- Output: `output/optimization/param_optimization_us.csv`
+**Status:** Superseded by Phase 5 (Optuna). Grid search replaced by Bayesian optimization.
 
-**Estimated runtime:** 33 tickers × 1,440 combos = ~47,520 backtests (~25 min)
+**Implementation:** Use `optimize_optuna.py --mode us --trials 300`
 
 ---
 
@@ -120,12 +116,9 @@ Window 7: Train 2022-01→2023-12 | Test 2024-H1
 Window 8: Train 2022-07→2024-06 | Test 2024-H2
 ```
 
-**Implementation:**
-- Create `walk_forward_us.py` (mirror `walk_forward.py`)
-- Use 33 sector-sample stocks
-- Report: efficiency ratio, parameter stability, overfitting assessment
+**Status:** Superseded by Phase 5 (Optuna WFA). Grid-based WFA replaced by Bayesian WFA.
 
-**Estimated runtime:** 33 × 1,440 × 8 = ~380,160 backtests (~3h)
+**Implementation:** Use `optimize_optuna.py --mode us --wfa --trials 200`
 
 ---
 

@@ -110,6 +110,43 @@ tickers:
   - T
   - IBM
 
+optimization_sample:
+  # Sector-sampled S&P 500 (3 per GICS sector = 33 stocks)
+  # Used by optimize_optuna.py for faster parameter search
+  - AAPL    # Tech
+  - MSFT
+  - NVDA
+  - JPM     # Financials
+  - GS
+  - BLK
+  - UNH     # Health Care
+  - LLY
+  - JNJ
+  - TSLA    # Consumer Disc.
+  - HD
+  - AMZN
+  - GE      # Industrials
+  - CAT
+  - RTX
+  - XOM     # Energy
+  - CVX
+  - COP
+  - NFLX    # Communication
+  - GOOGL
+  - META
+  - PG      # Consumer Staples
+  - KO
+  - COST
+  - NEE     # Utilities
+  - SO
+  - DUK
+  - LIN     # Materials
+  - FCX
+  - SHW
+  - PLD     # Real Estate
+  - AMT
+  - EQIX
+
 benchmark: SPY
 strategy:
   ema_fast: 20
