@@ -157,16 +157,35 @@ US open alle 15:30 conferma il move).
 
 ---
 
-## Score ETF (parametri originali)
+## Score ETF (parametri Optuna WFA)
 
 | Score | Gates OK | Azione |
 | :-- | :-- | :-- |
-| 5/6 o 6/6 | tutti OK | **GO** — prepara ordini su broker |
-| 5/6 o 6/6 | almeno 1 FAIL | **WATCH** — gate ha bloccato |
-| 4/6 | qualsiasi | **WATCH** |
-| <= 3/6 | qualsiasi | **SKIP** |
+| >= 3/6 | tutti OK | **GO** — prepara ordini su broker |
+| >= 3/6 | almeno 1 FAIL | **WATCH** — gate ha bloccato |
+| 2/6 | qualsiasi | **WATCH** |
+| <= 1/6 | qualsiasi | **SKIP** |
 
-Gates (4): VIX < 25, Benchmark EMA20 > EMA50, ADX >= 20 su CSSPX.MI, Correlazione pairwise < 0.7
+Gates (4): VIX < 35, Benchmark EMA20 > EMA50, ADX >= 10 su CSSPX.MI, Correlazione pairwise < 0.7
+
+---
+
+## Parametri Tuned (Optuna WFA)
+
+| Parametro | Originale | Tuned | Motivazione |
+| :-- | :-- | :-- | :-- |
+| `rsi_threshold` | 50 | **35** | Modo WFA (3/8 finestre) |
+| `mfi_threshold` | 50 | **40** | Modo WFA (4/8 finestre), MFI length 20 |
+| `vix_threshold` | 25 | **35** | Gate meno restrittivo, modo WFA (3/8 finestre) |
+| `adx_threshold` | 20 | **10** | Rilassamento consistente (4/8 finestre) |
+| `go_threshold` | 5 | **3** | Modo WFA (4/8 finestre) |
+
+**Validazione Optuna WFA (8 finestre OOS):**
+- Avg OOS return: -0.45% per finestra (3/8 finestre profittevoli)
+- Parametri migliorano marginalmente vs config originale (-0.45% vs -0.52%)
+- Rischio overfitting: MODERATO (efficiency ratio 0.27)
+- Universo limitato (7 ETF) riduce la significativita statistica
+- La strategia tecnica pura ha edge limitato sugli ETF settoriali — i prompt Perplexity (catalyst + rotation) restano il filtro principale
 
 ---
 

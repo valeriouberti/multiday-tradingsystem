@@ -743,7 +743,7 @@ def _print_wfa_summary(
 ) -> None:
     """Print WFA summary report."""
     console.print("\n" + "=" * 80)
-    label = f"{mode.upper()} ETF" if mode == "etf" else f"{mode.upper()} CFD"
+    label = "Sector ETF" if mode == "etf" else f"{mode.upper()} CFD"
     console.print(f"[bold]WALK-FORWARD ANALYSIS (Optuna) — {label}[/bold]")
     console.print("=" * 80)
 

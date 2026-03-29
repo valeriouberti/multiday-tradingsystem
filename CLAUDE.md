@@ -43,8 +43,8 @@ project/
 │   ├── metrics.py          ← Performance analytics (Sharpe, Sortino, Calmar, drawdown)
 │   └── plots.py            ← Equity curve + trade markers (matplotlib)
 ├── backtest.py             ← CLI: single-ticker backtest (--mode, --ticker, --start, --end)
-├── optimize_optuna.py      ← Optuna Bayesian optimization (ITA + US, simple + WFA)
-├── montecarlo.py           ← Monte Carlo simulation (trade-order shuffling, confidence intervals)
+├── optimize_optuna.py      ← Optuna Bayesian optimization (ITA + US + ETF, simple + WFA)
+├── montecarlo.py           ← Monte Carlo simulation (ITA + US + ETF, trade-order shuffling)
 ├── scripts/
 │   └── update_tickers.py   ← CI helper to update tickers in YAML
 ├── .github/workflows/
@@ -56,7 +56,8 @@ project/
 │   ├── reports_us/         ← Daily CSV reports (US)
 │   ├── reports_etf/        ← Daily CSV reports (ETF)
 │   ├── optimization_ita/   ← Optuna results (ITA)
-│   └── optimization_us/    ← Optuna results (US)
+│   ├── optimization_us/    ← Optuna results (US)
+│   └── optimization_etf/   ← Optuna results (ETF)
 ├── docs/
 │   ├── STRATEGY.md         ← Strategy overview + shared rules
 │   ├── STRATEGY_ITA.md     ← ITA prompts, params, tickers
@@ -79,8 +80,8 @@ All computed via pandas-ta library on DAILY timeframe:
 1. EMA 20 > EMA 50 Daily     → Trend direction
 2. EMA 20 > EMA 50 Weekly    → Structural trend filter
 3. MACD > Signal Line        → Momentum confirmation (12/26/9)
-4. RSI > 45 (ITA) / > 40 (US) / > 50 (ETF) → Momentum filter (length 14)
-5. MFI > 40 (ITA) / > 45 (US) / > 50 (ETF) → Money Flow Index (length 14)
+4. RSI > 45 (ITA) / > 40 (US) / > 35 (ETF) → Momentum filter (length 14)
+5. MFI > 40 (ITA) / > 45 (US) / > 40 (ETF) → Money Flow Index (length 20 ETF / 14 CFD)
 6. RS Line vs Benchmark      → Relative strength (20d lookback, 5d ROC)
 
 Entry timing helpers:
@@ -91,13 +92,13 @@ Entry timing helpers:
 ## Gates (not scored, downgrade GO to WATCH)
 **ITA (2 gates):** VIX < 35, ADX on ETFMIB.MI >= 15
 **US (2 gates):** VIX < 30, ADX on SPY >= 10
-**ETF (4 gates):** VIX < 25, Benchmark EMA health, ADX >= 20, Correlation < 0.7
+**ETF (4 gates):** VIX < 35, Benchmark EMA health, ADX >= 10, Correlation < 0.7
 
 ## Scoring Logic
 6 checks, max score 6/6:
 - **ITA:** Score >= 3/6 → GO, 2/6 → WATCH, <= 1/6 → SKIP
 - **US:** Score >= 4/6 → GO, 3/6 → WATCH, <= 2/6 → SKIP
-- **ETF:** Score >= 5/6 → GO, 4/6 → WATCH, <= 3/6 → SKIP
+- **ETF:** Score >= 3/6 → GO, 2/6 → WATCH, <= 1/6 → SKIP
 
 ## Key Rules (never change these in code)
 - All trend/momentum checks use DAILY timeframe

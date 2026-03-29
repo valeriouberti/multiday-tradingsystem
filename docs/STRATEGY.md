@@ -102,8 +102,8 @@ Sii conciso. Un paragrafo per posizione.
 
 | Gate | ITA CFD | US CFD | ETF | Effetto |
 | :-- | :-- | :-- | :-- | :-- |
-| VIX < threshold | < 35 | < 30 | < 25 | GO → WATCH |
-| ADX >= threshold su benchmark | >= 15 | >= 10 | >= 20 | GO → WATCH |
+| VIX < threshold | < 35 | < 30 | < 35 | GO → WATCH |
+| ADX >= threshold su benchmark | >= 15 | >= 10 | >= 10 | GO → WATCH |
 | Benchmark Health (EMA20 > EMA50) | — | — | yes | GO → WATCH |
 | Correlazione pairwise < 0.7 | — | — | yes | Dimezza size |
 
@@ -135,7 +135,7 @@ shares = min(
 5. **Chandelier Exit**: se close < Chandelier stop → EXIT
 6. **Weekend**: chiudere o ridurre 50% — CFD ha costo overnight (~0.05%/giorno)
 7. **Earnings**: mai tenere CFD aperto la notte prima degli earnings
-8. **Score minimo**: ITA >= 3/6, US >= 4/6, ETF >= 5/6
+8. **Score minimo**: ITA >= 3/6, US >= 4/6, ETF >= 3/6
 9. **Position sizing**: usare il numero di shares dello script, mai superare
 10. **BTP-Bund spread** (ITA): widening >10bp in un giorno → chiudere bancari
 11. **EUR/USD** (ETF): EUR in rafforzamento erode rendimenti ETF con sottostante USD

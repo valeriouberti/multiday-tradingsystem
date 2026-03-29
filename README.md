@@ -50,8 +50,8 @@ python main_etf.py                                    # ETF — sector ETFs
 
 | Gate | ITA | US | ETF |
 | :-- | :-- | :-- | :-- |
-| VIX < threshold | < 35 | < 30 | < 25 |
-| ADX >= threshold on benchmark | >= 15 | >= 10 | >= 20 |
+| VIX < threshold | < 35 | < 30 | < 35 |
+| ADX >= threshold on benchmark | >= 15 | >= 10 | >= 10 |
 | Benchmark EMA health | — | — | yes |
 | Pairwise correlation < 0.7 | — | — | yes |
 
@@ -61,7 +61,7 @@ python main_etf.py                                    # ETF — sector ETFs
 | :-- | :-- | :-- | :-- |
 | ITA CFD | >= 3/6 + gates OK | >= 2/6 or gate fail | <= 1/6 |
 | US CFD | >= 4/6 + gates OK | >= 3/6 or gate fail | <= 2/6 |
-| ETF | >= 5/6 + gates OK | >= 4/6 or gate fail | <= 3/6 |
+| ETF | >= 3/6 + gates OK | >= 2/6 or gate fail | <= 1/6 |
 
 ### Position Management
 
@@ -82,12 +82,15 @@ python backtest.py --ticker ISP.MI --start 2023-01-01 --end 2024-12-31
 # Monte Carlo simulation (trade-order shuffling)
 python montecarlo.py --mode ita --simulations 10000
 python montecarlo.py --mode us --simulations 10000 --save-plot
+python montecarlo.py --mode etf --simulations 10000
 
 # Optuna Bayesian optimization
 python optimize_optuna.py --mode ita --trials 300          # ITA single-period
 python optimize_optuna.py --mode us --trials 300           # US single-period
+python optimize_optuna.py --mode etf --trials 300          # ETF single-period
 python optimize_optuna.py --mode ita --wfa --trials 200    # ITA Walk-Forward Analysis
 python optimize_optuna.py --mode us --wfa --trials 200     # US Walk-Forward Analysis
+python optimize_optuna.py --mode etf --wfa --trials 200    # ETF Walk-Forward Analysis
 ```
 
 **Optuna** uses TPE (Tree-structured Parzen Estimator) with precomputed indicators
@@ -96,13 +99,13 @@ across 8 rolling windows (24-month train / 6-month test).
 
 ### Tuned Parameters
 
-| Parameter | ITA | US | Source |
-| :-- | :-- | :-- | :-- |
-| RSI threshold | 45 | 40 | Optuna WFA |
-| MFI threshold | 40 | 45 | Optuna WFA |
-| VIX gate | 35 | 30 | Optuna WFA |
-| ADX gate | 15 | 10 | Optuna WFA |
-| GO threshold | 3 | 4 | Optuna WFA |
+| Parameter | ITA | US | ETF | Source |
+| :-- | :-- | :-- | :-- | :-- |
+| RSI threshold | 45 | 40 | 35 | Optuna WFA |
+| MFI threshold | 40 | 45 | 40 (len 20) | Optuna WFA |
+| VIX gate | 35 | 30 | 35 | Optuna WFA |
+| ADX gate | 15 | 10 | 10 | Optuna WFA |
+| GO threshold | 3 | 4 | 3 | Optuna WFA |
 
 ---
 

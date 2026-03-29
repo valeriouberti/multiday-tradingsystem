@@ -17,18 +17,18 @@ strategy:
   macd_slow: 26
   macd_signal: 9
   rsi_length: 14
-  rsi_threshold: 50
-  mfi_length: 14
-  mfi_threshold: 50
+  rsi_threshold: 35
+  mfi_length: 20
+  mfi_threshold: 40
   atr_length: 14
   atr_multiplier: 1.5
   rs_lookback_days: 20
   rs_roc_days: 5
   bench_ema_fast: 20
   bench_ema_slow: 50
-  vix_threshold: 25
+  vix_threshold: 35
   adx_length: 14
-  adx_threshold: 20
+  adx_threshold: 10
   correlation_lookback: 20
   correlation_threshold: 0.7
   chandelier_lookback: 22
@@ -43,8 +43,8 @@ position_sizing:
   commission: 2.95
   max_capital_pct: 0.4
 alerts:
-  go_threshold: 5
-  watch_threshold: 4
+  go_threshold: 3
+  watch_threshold: 2
 session:
   timezone: Europe/Rome
   market_open_utc: 08:00
