@@ -7,7 +7,7 @@ name: ETF Validator
 
 on:
   schedule:
-    - cron: "0 12 * * 1-5"   # Mon-Fri 12:00 UTC → 14:00 CEST
+    - cron: "0 12 * * 1-5" # Mon-Fri 12:00 UTC → 14:00 CEST
   workflow_dispatch:
     inputs:
       tickers:
