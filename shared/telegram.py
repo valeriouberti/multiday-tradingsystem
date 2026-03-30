@@ -112,7 +112,50 @@ def send_message(text: str, parse_mode: str = "HTML") -> bool:
     return all_ok
 
 
-def send_ita_report(results: list[dict], config: dict) -> bool:
+def _format_news_risk_telegram(news_risk: dict) -> list[str]:
+    """Format structured Perplexity news risk for Telegram HTML."""
+    lines = ["<b>NEWS RISK (Perplexity)</b>"]
+
+    if "_raw" in news_risk:
+        lines.append(news_risk["_raw"])
+        return lines
+
+    macro = news_risk.get("macro", "")
+    if macro:
+        lines.append(f"<i>Macro: {macro}</i>")
+        lines.append("")
+
+    for t in news_risk.get("tickers", []):
+        ticker = t.get("ticker", "???")
+        verdict = t.get("verdict", "???").upper()
+        reason = t.get("reason", "")
+
+        if verdict == "SKIP":
+            icon = "\u274c"
+        elif verdict == "WAIT":
+            icon = "\u26a0\ufe0f"
+        else:
+            icon = "\u2705"
+
+        lines.append(f"{icon} <b>{ticker}</b> {verdict} \u2014 {reason}")
+
+        flags = []
+        earn = t.get("earnings", {})
+        if earn.get("flag"):
+            flags.append(f"Earnings: {earn.get('detail', 'YES')}")
+        exdiv = t.get("ex_dividend", {})
+        if exdiv.get("flag"):
+            flags.append(f"Ex-div: {exdiv.get('detail', 'YES')}")
+        event = t.get("event", {})
+        if event.get("flag"):
+            flags.append(f"Event: {event.get('detail', 'YES')}")
+        if flags:
+            lines.append(f"   {' | '.join(flags)}")
+
+    return lines
+
+
+def send_ita_report(results: list[dict], config: dict, *, news_risk: dict | None = None) -> bool:
     """Format and send ITA CFD report to Telegram."""
     lines = ["<b>ITA CFD Report</b>", ""]
 
@@ -154,6 +197,11 @@ def send_ita_report(results: list[dict], config: dict) -> bool:
         f"<b>{len(go_results)} GO | {len(watch_results)} WATCH | "
         f"{len(skip_results)} SKIP</b>"
     )
+
+    if news_risk:
+        lines.append("")
+        lines.extend(_format_news_risk_telegram(news_risk))
+
     return send_message("\n".join(lines))
 
 
@@ -337,7 +385,7 @@ def send_etf_report(results: list[dict], config: dict, correlations: dict) -> bo
 # US S&P 500 CFD
 # =========================================================================
 
-def send_us_report(results: list[dict], config: dict) -> bool:
+def send_us_report(results: list[dict], config: dict, *, news_risk: dict | None = None) -> bool:
     """Format and send US S&P 500 CFD report to Telegram.
 
     Shows top-N ranked tickers in detail, remaining GO/WATCH compactly.
@@ -394,6 +442,10 @@ def send_us_report(results: list[dict], config: dict) -> bool:
     watch = sum(1 for r in results if r["status"] == "WATCH")
     skip = sum(1 for r in results if r["status"] == "SKIP")
     lines.append(f"<b>{go} GO | {watch} WATCH | {skip} SKIP</b>")
+
+    if news_risk:
+        lines.append("")
+        lines.extend(_format_news_risk_telegram(news_risk))
 
     return send_message("\n".join(lines))
 

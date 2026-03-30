@@ -6,8 +6,9 @@ import yaml
 
 from shared.data import prefetch_all
 from shared.indicators import check_adx_regime, check_vix_regime
+from shared.perplexity import check_news_risk_ita
 from shared.telegram import send_ita_report, send_ita_deepdive_prompt
-from validator_ita.report import print_report, save_csv
+from validator_ita.report import print_report, print_news_risk, save_csv
 from validator_ita.scorer import score_ticker
 
 logging.basicConfig(
@@ -67,11 +68,17 @@ def main():
         result = score_ticker(ticker, config, gates)
         results.append(result)
 
+    # --- News risk check (Perplexity) ---
+    news_risk = check_news_risk_ita(results)
+
     # --- Output ---
     print_report(results, config)
+    if news_risk:
+        print_news_risk(news_risk)
     save_csv(results, config)
-    send_ita_report(results, config)
-    send_ita_deepdive_prompt(results, config)
+    send_ita_report(results, config, news_risk=news_risk)
+    if not news_risk:
+        send_ita_deepdive_prompt(results, config)
 
     elapsed = time.time() - start
     logger.info("Done in %.1f seconds", elapsed)

@@ -176,6 +176,75 @@ def print_report(results: list[dict], config: dict) -> None:
         console.print()
 
 
+def print_news_risk(news_risk: dict) -> None:
+    """Print Perplexity news risk analysis below the action plan."""
+    console.print("[bold cyan]NEWS RISK CHECK (Perplexity Sonar)[/bold cyan]")
+    console.print()
+
+    # Raw text fallback
+    if "_raw" in news_risk:
+        for line in news_risk["_raw"].strip().splitlines():
+            console.print(f"  {line.strip()}")
+        console.print()
+        return
+
+    # Macro context
+    macro = news_risk.get("macro", "")
+    if macro:
+        console.print(f"  [dim]Macro: {macro}[/dim]")
+        console.print()
+
+    # Per-ticker results
+    tickers = news_risk.get("tickers", [])
+    for t in tickers:
+        ticker = t.get("ticker", "???")
+        verdict = t.get("verdict", "???").upper()
+        reason = t.get("reason", "")
+
+        if verdict == "SKIP":
+            style = "bold red"
+            icon = "\u274c"
+        elif verdict == "WAIT":
+            style = "bold yellow"
+            icon = "\u26a0\ufe0f"
+        else:
+            style = "bold green"
+            icon = "\u2705"
+
+        console.print(f"  [{style}]{icon} {ticker} \u2014 {verdict}[/{style}]  {reason}")
+
+        # Detail lines
+        details = []
+        earn = t.get("earnings", {})
+        if earn.get("flag"):
+            details.append(f"[red]Earnings: {earn.get('detail', 'SI')}[/red]")
+        exdiv = t.get("ex_dividend", {})
+        if exdiv.get("flag"):
+            details.append(f"[yellow]Ex-div: {exdiv.get('detail', 'SI')}[/yellow]")
+        cat = t.get("catalyst", {})
+        cat_level = cat.get("level", "").upper()
+        if cat_level and cat_level != "NONE":
+            cat_style = "green" if cat_level == "ACTIVE" else "yellow"
+            details.append(f"[{cat_style}]Catalyst: {cat.get('detail', cat_level)}[/{cat_style}]")
+        event = t.get("event", {})
+        if event.get("flag"):
+            details.append(f"[red]Event: {event.get('detail', 'SI')}[/red]")
+        sector = t.get("sector_risk", "")
+        if sector:
+            details.append(f"[dim]Settore: {sector}[/dim]")
+
+        if details:
+            console.print(f"    {' | '.join(details)}")
+
+    # Citations
+    citations = news_risk.get("_citations", [])
+    if citations:
+        console.print()
+        console.print(f"  [dim]Fonti: {len(citations)} articoli consultati[/dim]")
+
+    console.print()
+
+
 def save_csv(results: list[dict], config: dict) -> None:
     if not config["output"].get("save_csv", True):
         return
