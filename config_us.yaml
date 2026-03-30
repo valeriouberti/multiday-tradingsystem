@@ -113,37 +113,37 @@ tickers:
 optimization_sample:
   # Sector-sampled S&P 500 (3 per GICS sector = 33 stocks)
   # Used by optimize_optuna.py for faster parameter search
-  - AAPL    # Tech
+  - AAPL # Tech
   - MSFT
   - NVDA
-  - JPM     # Financials
+  - JPM # Financials
   - GS
   - BLK
-  - UNH     # Health Care
+  - UNH # Health Care
   - LLY
   - JNJ
-  - TSLA    # Consumer Disc.
+  - TSLA # Consumer Disc.
   - HD
   - AMZN
-  - GE      # Industrials
+  - GE # Industrials
   - CAT
   - RTX
-  - XOM     # Energy
+  - XOM # Energy
   - CVX
   - COP
-  - NFLX    # Communication
+  - NFLX # Communication
   - GOOGL
   - META
-  - PG      # Consumer Staples
+  - PG # Consumer Staples
   - KO
   - COST
-  - NEE     # Utilities
+  - NEE # Utilities
   - SO
   - DUK
-  - LIN     # Materials
+  - LIN # Materials
   - FCX
   - SHW
-  - PLD     # Real Estate
+  - PLD # Real Estate
   - AMT
   - EQIX
 
@@ -190,3 +190,30 @@ session:
 output:
   save_csv: true
   csv_dir: output/reports_us
+ai:
+  provider: gemini
+  model: gemini-3-flash-preview
+  enabled: false
+  max_tickers: 5
+news:
+  finnhub_lookback_hours: 48
+  duckduckgo_max_results: 10
+events:
+  earnings_blackout_days: 5
+  macro_blackout_days: 3
+  macro_calendar:
+    # FOMC 2026 (source: federalreserve.gov/monetarypolicy)
+    - { date: "2026-05-06", name: "FOMC Rate Decision", country: US }
+    - { date: "2026-06-17", name: "FOMC Rate Decision", country: US }
+    - { date: "2026-07-29", name: "FOMC Rate Decision", country: US }
+    - { date: "2026-09-16", name: "FOMC Rate Decision", country: US }
+    - { date: "2026-11-04", name: "FOMC Rate Decision", country: US }
+    - { date: "2026-12-16", name: "FOMC Rate Decision", country: US }
+    # ECB 2026 (source: ecb.europa.eu/press/govcdec)
+    - { date: "2026-04-02", name: "ECB Rate Decision", country: EU }
+    - { date: "2026-04-30", name: "ECB Rate Decision", country: EU }
+    - { date: "2026-06-04", name: "ECB Rate Decision", country: EU }
+    - { date: "2026-07-16", name: "ECB Rate Decision", country: EU }
+    - { date: "2026-09-10", name: "ECB Rate Decision", country: EU }
+    - { date: "2026-10-22", name: "ECB Rate Decision", country: EU }
+    - { date: "2026-12-10", name: "ECB Rate Decision", country: EU }

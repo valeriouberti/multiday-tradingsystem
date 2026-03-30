@@ -10,6 +10,7 @@ If either is missing, sending is silently skipped.
 import json
 import logging
 import os
+import uuid
 import urllib.request
 import urllib.error
 
@@ -112,6 +113,61 @@ def send_message(text: str, parse_mode: str = "HTML") -> bool:
     return all_ok
 
 
+def send_document(file_path: str, caption: str = "") -> bool:
+    """Send a file (e.g. PDF) to the configured Telegram chat via sendDocument API."""
+    if not is_configured():
+        logger.debug("Telegram not configured, skipping document send")
+        return False
+
+    url = f"https://api.telegram.org/bot{BOT_TOKEN}/sendDocument"
+    boundary = uuid.uuid4().hex
+
+    with open(file_path, "rb") as f:
+        file_data = f.read()
+
+    filename = os.path.basename(file_path)
+
+    # Build multipart/form-data body
+    body = b""
+    # chat_id field
+    body += f"--{boundary}\r\n".encode()
+    body += b'Content-Disposition: form-data; name="chat_id"\r\n\r\n'
+    body += f"{CHAT_ID}\r\n".encode()
+    # caption field
+    if caption:
+        body += f"--{boundary}\r\n".encode()
+        body += b'Content-Disposition: form-data; name="caption"\r\n\r\n'
+        body += f"{caption}\r\n".encode()
+        body += f"--{boundary}\r\n".encode()
+        body += b'Content-Disposition: form-data; name="parse_mode"\r\n\r\n'
+        body += b"HTML\r\n"
+    # document field
+    body += f"--{boundary}\r\n".encode()
+    body += (
+        f'Content-Disposition: form-data; name="document"; '
+        f'filename="{filename}"\r\n'
+    ).encode()
+    body += b"Content-Type: application/pdf\r\n\r\n"
+    body += file_data
+    body += b"\r\n"
+    body += f"--{boundary}--\r\n".encode()
+
+    req = urllib.request.Request(
+        url, data=body,
+        headers={"Content-Type": f"multipart/form-data; boundary={boundary}"},
+    )
+    try:
+        with urllib.request.urlopen(req, timeout=30) as resp:
+            if resp.status == 200:
+                logger.info("Telegram document sent: %s", filename)
+                return True
+            logger.warning("Telegram sendDocument returned %d", resp.status)
+            return False
+    except urllib.error.URLError as e:
+        logger.warning("Telegram document send failed: %s", e)
+        return False
+
+
 def send_ita_report(results: list[dict], config: dict) -> bool:
     """Format and send ITA CFD report to Telegram."""
     lines = ["<b>ITA CFD Report</b>", ""]
@@ -179,93 +235,27 @@ def _append_ita_ticker(
         lines.append(f"  {size} sh / {notional:,.0f} not. / {margin:,.0f} margin")
 
 
-def send_ita_deepdive_prompt(results: list[dict], config: dict) -> bool:
-    """Send ITA deep-dive prompt (two messages: context + Perplexity prompt)."""
+def send_ita_ai_report(results: list[dict], config: dict) -> bool:
+    """Run AI analysis for top-N ITA GO/WATCH tickers, generate PDF, send via Telegram."""
     actionable = [r for r in results if r["status"] in ("GO", "WATCH")]
     if not actionable:
-        logger.debug("No GO/WATCH tickers, skipping deep-dive prompt")
+        logger.debug("No GO/WATCH tickers, skipping AI report")
         return False
 
-    # --- Message 1: Ticker context ---
-    gates = actionable[0].get("gates", {})
-    ctx_lines = [
-        f"<b>Deep Dive — ITA ({len(actionable)} titoli)</b>",
-        f"VIX {gates.get('vix_value', 0)} | ADX {gates.get('adx_value', 0)}",
-        "",
-    ]
-    for i, r in enumerate(actionable, 1):
-        checks = r["checks"]
-        passed = [n for n, c in checks.items() if c["passed"]]
-        failed = [n for n, c in checks.items() if not c["passed"]]
-        close = r.get("last_close", 0)
-        leverage = config.get("position_sizing", {}).get("leverage", 5)
-        notional = r["position_size"] * close if close > 0 else 0
-        margin = notional / leverage if leverage > 0 else notional
-
-        ctx_lines.append(
-            f"{i}. <b>{r['ticker']}</b> {r['status']} {r['score']}/{r['max_score']}"
-        )
-        ctx_lines.append(
-            f"   {close:.2f} | Premkt {r['premarket_pct']:+.1f}% | {r['entry_method']}"
-        )
-        ctx_lines.append(
-            f"   SL {r['stop_loss']:.2f} | TP1 {r['tp1_price']:.2f} | "
-            f"Trail {r['chandelier_stop']:.2f}"
-        )
-        ctx_lines.append(
-            f"   {r['position_size']} sh / {notional:,.0f} not. / {margin:,.0f} margin"
-        )
-        fail_str = f" | Fail: {', '.join(failed)}" if failed else ""
-        ctx_lines.append(f"   Pass: {', '.join(passed)}{fail_str}")
-        ctx_lines.append("")
-
-    send_message("\n".join(ctx_lines))
-
-    # --- Message 2: Perplexity prompt ---
-    ticker_summary = []
-    for r in actionable:
-        checks = r["checks"]
-        failed = [n for n, c in checks.items() if not c["passed"]]
-        fail_str = f" (manca: {', '.join(failed)})" if failed else ""
-        ticker_summary.append(
-            f"- {r['ticker']} {r['status']} {r['score']}/6{fail_str} | "
-            f"{r.get('last_close', 0):.2f} | SL {r['stop_loss']:.2f}"
-        )
-    tickers_str = "\n".join(ticker_summary)
-
-    prompt = (
-        "<b>Copia su Perplexity</b>\n"
-        "---\n\n"
-        "Cerca notizie in tempo reale. Sei un analista rischio su azioni "
-        "italiane FTSE MIB.\n\n"
-        "Il mio screening tecnico automatico ha selezionato questi titoli "
-        "per CFD multiday (3-7 sessioni, leva 5:1 broker):\n\n"
-        f"{tickers_str}\n\n"
-        "I tecnici sono validati. Cerca SOLO deal-breaker fondamentali "
-        "che il tecnico non vede.\n\n"
-        "Per ogni titolo rispondi:\n\n"
-        "1. EARNINGS: Pubblica trimestrali nei prossimi 7gg di borsa?\n"
-        "   SI (data) = veto automatico / NO\n\n"
-        "2. CATALYST: Catalyst attivo ultime 48h? Ha gambe multiday "
-        "(3-7 sessioni) o gia prezzato?\n"
-        "   ATTIVO (motivo) / DEBOLE / NESSUNO\n\n"
-        "3. EVENTO KILLER 48h: Evento specifico (BCE, asta BTP, dato macro, "
-        "ex-dividendo, scadenza tecnica) che puo invertire prima del TP1?\n"
-        "   SI (evento + data) / NO\n\n"
-        "Output (una riga per titolo):\n"
-        "[ticker.MI] | Earnings: SI/NO | Catalyst: ATTIVO/DEBOLE/NESSUNO "
-        "| Evento: SI/NO\n"
-        "Verdetto: ENTRY / WAIT / SKIP + motivo (max 10 parole)\n\n"
-        "Regole:\n"
-        "- Earnings = SKIP automatico\n"
-        "- Nessun catalyst + Evento = SKIP\n"
-        "- Catalyst debole = WAIT\n"
-        "- Catalyst attivo + No evento = ENTRY\n"
-        "- Per bancari (ISP, UCG, BPE, FBK, MB): nota su spread "
-        "BTP-Bund se in allargamento >5bp"
+    # Rank by score desc, then entry method priority, take top N
+    entry_priority = {"GAP_UP": 4, "BONE_ZONE": 3, "PULLBACK": 2, "ORB": 1, "WAIT": 0}
+    actionable.sort(
+        key=lambda r: (r["score"], entry_priority.get(r.get("entry_method", ""), 0)),
+        reverse=True,
     )
+    max_tickers = config.get("ai", {}).get("max_tickers", 5)
+    actionable = actionable[:max_tickers]
 
-    return send_message(prompt)
+    return _run_ai_pipeline(
+        actionable, results, config,
+        strategy_name="ITA CFD",
+        output_dir=config.get("output", {}).get("csv_dir", "output/reports_ita"),
+    )
 
 
 def send_etf_report(results: list[dict], config: dict, correlations: dict) -> bool:
@@ -398,89 +388,63 @@ def send_us_report(results: list[dict], config: dict) -> bool:
     return send_message("\n".join(lines))
 
 
-def send_us_deepdive_prompt(results: list[dict], config: dict) -> bool:
-    """Send US deep-dive prompt (two messages: context + Perplexity prompt)."""
+def send_us_ai_report(results: list[dict], config: dict) -> bool:
+    """Run AI analysis for US ranked tickers, generate PDF, send via Telegram."""
     actionable = [r for r in results if r.get("rank", 0) > 0]
     if not actionable:
-        logger.debug("No ranked US tickers, skipping deep-dive prompt")
+        logger.debug("No ranked US tickers, skipping AI report")
         return False
 
-    # --- Message 1: Ticker context ---
-    gates = actionable[0].get("gates", {})
-    ctx_lines = [
-        f"<b>Deep Dive — US ({len(actionable)} stocks)</b>",
-        f"VIX {gates.get('vix_value', 0)} | ADX {gates.get('adx_value', 0)}",
-        "",
-    ]
-    for i, r in enumerate(actionable, 1):
-        checks = r["checks"]
-        passed = [n for n, c in checks.items() if c["passed"]]
-        failed = [n for n, c in checks.items() if not c["passed"]]
-        close = r.get("last_close", 0)
-        leverage = config.get("position_sizing", {}).get("leverage", 5)
-        notional = r["position_size"] * close if close > 0 else 0
-        margin = notional / leverage if leverage > 0 else notional
-
-        ctx_lines.append(
-            f"{i}. <b>{r['ticker']}</b> {r['status']} {r['score']}/{r['max_score']}"
-        )
-        ctx_lines.append(
-            f"   ${close:.2f} | Premkt {r['premarket_pct']:+.1f}% | {r['entry_method']}"
-        )
-        ctx_lines.append(
-            f"   SL {r['stop_loss']:.2f} | TP1 {r['tp1_price']:.2f} | "
-            f"Trail {r['chandelier_stop']:.2f}"
-        )
-        ctx_lines.append(
-            f"   {r['position_size']} sh / ${notional:,.0f} not. / ${margin:,.0f} margin"
-        )
-        fail_str = f" | Fail: {', '.join(failed)}" if failed else ""
-        ctx_lines.append(f"   Pass: {', '.join(passed)}{fail_str}")
-        ctx_lines.append("")
-
-    send_message("\n".join(ctx_lines))
-
-    # --- Message 2: Perplexity prompt ---
-    ticker_summary = []
-    for r in actionable:
-        checks = r["checks"]
-        failed = [n for n, c in checks.items() if not c["passed"]]
-        fail_str = f" (miss: {', '.join(failed)})" if failed else ""
-        ticker_summary.append(
-            f"- {r['ticker']} {r['status']} {r['score']}/6{fail_str} | "
-            f"${r.get('last_close', 0):.2f} | SL ${r['stop_loss']:.2f}"
-        )
-    tickers_str = "\n".join(ticker_summary)
-
-    prompt = (
-        "<b>Copy to Perplexity</b>\n"
-        "---\n\n"
-        "Search real-time news. You are a risk analyst covering US large-cap "
-        "equities (S&P 500).\n\n"
-        "My automated technical screener selected these stocks for CFD "
-        "multiday swing trades (3-7 sessions, 5:1 leverage via broker):\n\n"
-        f"{tickers_str}\n\n"
-        "Technicals are validated. Find ONLY fundamental deal-breakers "
-        "that technicals cannot see.\n\n"
-        "For each stock:\n\n"
-        "1. EARNINGS: Reports earnings in the next 7 trading days?\n"
-        "   YES (date) = automatic veto / NO\n\n"
-        "2. CATALYST: Active catalyst in last 48h? Multi-day legs "
-        "(3-7 sessions) or already priced in?\n"
-        "   ACTIVE (reason) / FADING / NONE\n\n"
-        "3. KILLER EVENT next 48h: Specific event (FOMC, CPI, NFP, "
-        "PPI, ex-dividend, antitrust) that could reverse before TP1?\n"
-        "   YES (event + date) / NO\n\n"
-        "Output (one line per stock):\n"
-        "[TICKER] | Earnings: YES/NO | Catalyst: ACTIVE/FADING/NONE "
-        "| Event: YES/NO\n"
-        "Verdict: ENTRY / WAIT / SKIP + reason (max 10 words)\n\n"
-        "Rules:\n"
-        "- Earnings = SKIP automatic\n"
-        "- No catalyst + Event = SKIP\n"
-        "- Fading catalyst = WAIT\n"
-        "- Active catalyst + No event = ENTRY\n"
-        "- Rate-sensitive (banks, REITs, utilities): note 10Y yield move"
+    return _run_ai_pipeline(
+        actionable, results, config,
+        strategy_name="US S&P 500 CFD",
+        output_dir=config.get("output", {}).get("csv_dir", "output/reports_us"),
     )
 
-    return send_message(prompt)
+
+def _run_ai_pipeline(
+    actionable: list[dict],
+    all_results: list[dict],
+    config: dict,
+    strategy_name: str,
+    output_dir: str,
+) -> bool:
+    """Shared AI enrichment pipeline: news -> events -> LLM -> PDF -> Telegram.
+
+    Enriches result dicts in-place with 'news', 'events', 'ai_analysis' fields.
+    """
+    from shared.analyzer import analyze_ticker
+    from shared.events import check_events
+    from shared.news import fetch_news
+    from shared.pdf_report import generate_report
+
+    for r in actionable:
+        ticker = r["ticker"]
+        logger.info("AI pipeline: enriching %s", ticker)
+
+        # Fetch news
+        news = fetch_news(ticker, config)
+        r["news"] = news
+
+        # Check events
+        events = check_events(ticker, config)
+        r["events"] = events
+
+        # AI analysis
+        ai_result = analyze_ticker(ticker, r, news, events, config)
+        r["ai_analysis"] = ai_result
+
+    # Generate PDF
+    pdf_path = generate_report(all_results, config, strategy_name, output_dir)
+
+    if pdf_path:
+        go_count = sum(1 for r in actionable if r["status"] == "GO")
+        watch_count = sum(1 for r in actionable if r["status"] == "WATCH")
+        caption = (
+            f"<b>{strategy_name} Analysis</b>\n"
+            f"{go_count} GO | {watch_count} WATCH"
+        )
+        return send_document(pdf_path, caption=caption)
+
+    logger.warning("PDF generation failed, skipping Telegram document send")
+    return False
