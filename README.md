@@ -138,8 +138,11 @@ entry signal labels, configurable alerts.
 
 ## Telegram
 
-Reports are sent automatically via Telegram after each execution (local or CI).
-Zero extra dependencies (uses `urllib`).
+Reports are sent as **PDF documents** via Telegram after each execution (local or CI).
+The Telegram notification shows a short caption with the **top 5 tickers** and gates status;
+the full report (all results, action plan, Perplexity prompt) is in the attached PDF.
+
+Zero extra dependencies (uses `urllib` + `fpdf2`).
 
 **Setup:** Create bot via `@BotFather`, set `TELEGRAM_BOT_TOKEN` and `TELEGRAM_CHAT_ID`
 as env vars (local) or GitHub secrets (CI).
@@ -173,18 +176,19 @@ project/
 │   ├── data.py             ← yfinance data fetching with cache
 │   ├── indicators.py       ← Common indicators (EMA, MACD, RSI, MFI, RS, gates)
 │   ├── position_sizing.py  ← CFD + ETF position sizing
+│   ├── pdf_report.py       ← PDF report generation (ITA, US, ETF)
 │   ├── report_utils.py     ← Shared Rich formatting helpers
-│   └── telegram.py         ← Telegram notifications
+│   └── telegram.py         ← Telegram PDF delivery + top-5 captions
 ├── validator_ita/
 │   ├── scorer.py           ← 6 checks + 2 gates scorer
-│   └── report.py           ← Rich table + CSV (EUR, broker CFD)
+│   └── report.py           ← Rich table + CSV + PDF (EUR, broker CFD)
 ├── validator_us/
 │   ├── scorer.py           ← 6 checks + 2 gates scorer
-│   └── report.py           ← Rich table + CSV (USD, broker CFD)
+│   └── report.py           ← Rich table + CSV + PDF (USD, broker CFD)
 ├── validator_etf/
 │   ├── indicators.py       ← ETF-specific: bench health + correlations
 │   ├── scorer.py           ← 6 checks + 4 gates scorer
-│   └── report.py           ← Rich table + CSV (EUR, broker cash)
+│   └── report.py           ← Rich table + CSV + PDF (EUR, broker cash)
 ├── backtester/
 │   ├── data.py             ← Historical data fetching with warmup
 │   ├── signals.py          ← Vectorized signal generation
@@ -210,9 +214,9 @@ project/
 │   ├── ita_cfd_validator.pine  ← TradingView ITA (v1.2)
 │   └── us_cfd_validator.pine   ← TradingView US (v1.0)
 └── output/
-    ├── reports_ita/        ← Daily CSV reports (ITA)
-    ├── reports_us/         ← Daily CSV reports (US)
-    ├── reports_etf/        ← Daily CSV reports (ETF)
+    ├── reports_ita/        ← Daily CSV + PDF reports (ITA)
+    ├── reports_us/         ← Daily CSV + PDF reports (US)
+    ├── reports_etf/        ← Daily CSV + PDF reports (ETF)
     ├── optimization_ita/   ← Optuna results (ITA)
     └── optimization_us/    ← Optuna results (US)
 ```
@@ -230,6 +234,7 @@ rich>=13.0
 matplotlib>=3.7
 python-dotenv==1.0.1
 optuna>=3.0
+fpdf2>=2.7
 ```
 
 ---

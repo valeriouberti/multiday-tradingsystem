@@ -6,3 +6,4 @@ rich>=13.0
 python-dotenv==1.0.1
 matplotlib>=3.7
 optuna>=3.0
+fpdf2>=2.7

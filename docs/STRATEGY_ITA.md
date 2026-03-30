@@ -57,17 +57,13 @@ python main_ita.py    # scansiona tutti i 40 titoli FTSE MIB
 Lo script:
 1. Scansiona tutti i 40 titoli nel config
 2. Calcola i 6 check + 2 gate per ciascuno
-3. Invia il report su Telegram (GO / WATCH / SKIP)
-4. **Invia automaticamente il Prompt 2 su Telegram** con i ticker GO/WATCH
+3. Genera un **PDF report** con i **top 5** ticker (tabella, action plan, Perplexity prompt)
+4. Invia il PDF su Telegram con caption riassuntiva (top 5 + gates)
 
-### Prompt 2 ITA: Deep Dive (auto-generato dallo script)
+### Prompt 2 ITA: Deep Dive (nel PDF, pagina dedicata)
 
-**Messaggio 1 (contesto):** Riepilogo tecnico per ogni ticker GO/WATCH:
-- Score, check passati/falliti, entry method, premarket %
-- Stop loss, TP1, chandelier stop
-- Size, notional, margin
-
-**Messaggio 2 (il prompt da copiare):** 3 domande deal-breaker:
+Il PDF include una pagina "Perplexity Prompt (copy & paste)" in font monospaced,
+pronta da copiare. Contiene i ticker GO/WATCH del top 5 con 3 domande deal-breaker:
 
 | # | Domanda | Logica |
 | :-- | :-- | :-- |

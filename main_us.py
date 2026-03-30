@@ -6,7 +6,7 @@ import yaml
 
 from shared.data import prefetch_all
 from shared.indicators import check_adx_regime, check_vix_regime
-from shared.telegram import send_us_report, send_us_deepdive_prompt
+from shared.telegram import send_us_report
 from validator_us.report import print_report, save_csv
 from validator_us.scorer import rank_results, score_ticker
 
@@ -84,7 +84,6 @@ def main():
     print_report(results, config)
     save_csv(results, config)
     send_us_report(results, config)
-    send_us_deepdive_prompt(results, config)
 
     elapsed = time.time() - start
     logger.info("Done in %.1f seconds (%d tickers)", elapsed, len(tickers))

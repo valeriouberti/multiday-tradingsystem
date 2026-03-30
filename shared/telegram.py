@@ -22,6 +22,8 @@ load_dotenv()
 BOT_TOKEN = os.environ.get("TELEGRAM_BOT_TOKEN", "")
 CHAT_ID = os.environ.get("TELEGRAM_CHAT_ID", "")
 
+TOP_N_CAPTION = 5
+
 
 def is_configured() -> bool:
     return bool(BOT_TOKEN and CHAT_ID)
@@ -112,71 +114,124 @@ def send_message(text: str, parse_mode: str = "HTML") -> bool:
     return all_ok
 
 
+def send_document(file_path: str, caption: str = "",
+                  parse_mode: str = "HTML") -> bool:
+    """Send a document (PDF) to the configured Telegram chat."""
+    if not is_configured():
+        logger.debug("Telegram not configured, skipping")
+        return False
+
+    url = f"https://api.telegram.org/bot{BOT_TOKEN}/sendDocument"
+    boundary = "----TelegramBoundary"
+
+    # Build multipart/form-data body
+    parts: list[bytes] = []
+
+    # chat_id field
+    parts.append(f"--{boundary}\r\n".encode())
+    parts.append(b'Content-Disposition: form-data; name="chat_id"\r\n\r\n')
+    parts.append(f"{CHAT_ID}\r\n".encode())
+
+    # caption field (max 1024 chars for documents)
+    if caption:
+        truncated = caption[:1024]
+        parts.append(f"--{boundary}\r\n".encode())
+        parts.append(b'Content-Disposition: form-data; name="caption"\r\n\r\n')
+        parts.append(f"{truncated}\r\n".encode())
+
+        parts.append(f"--{boundary}\r\n".encode())
+        parts.append(b'Content-Disposition: form-data; name="parse_mode"\r\n\r\n')
+        parts.append(f"{parse_mode}\r\n".encode())
+
+    # document file
+    filename = os.path.basename(file_path)
+    parts.append(f"--{boundary}\r\n".encode())
+    parts.append(
+        f'Content-Disposition: form-data; name="document"; '
+        f'filename="{filename}"\r\n'.encode()
+    )
+    parts.append(b"Content-Type: application/pdf\r\n\r\n")
+    with open(file_path, "rb") as f:
+        parts.append(f.read())
+    parts.append(b"\r\n")
+
+    # Closing boundary
+    parts.append(f"--{boundary}--\r\n".encode())
+
+    body = b"".join(parts)
+    req = urllib.request.Request(
+        url, data=body,
+        headers={"Content-Type": f"multipart/form-data; boundary={boundary}"},
+    )
+    try:
+        with urllib.request.urlopen(req, timeout=30) as resp:
+            if resp.status == 200:
+                logger.info("Telegram document sent: %s", filename)
+                return True
+            logger.warning("Telegram sendDocument returned %d", resp.status)
+            return False
+    except urllib.error.URLError as e:
+        logger.warning("Telegram sendDocument failed: %s", e)
+        return False
+
+
+# ─── Top-5 selection helper ─────────────────────────────────────────────
+
+def _top_n_results(results: list[dict], n: int = TOP_N_CAPTION) -> list[dict]:
+    """Return top N results sorted by status (GO > WATCH) then score desc."""
+    status_order = {"GO": 0, "WATCH": 1, "SKIP": 2}
+    actionable = [r for r in results if r["status"] in ("GO", "WATCH")]
+    ranked = sorted(
+        actionable,
+        key=lambda r: (status_order.get(r["status"], 9), -r["score"]),
+    )
+    return ranked[:n]
+
+
+# ═════════════════════════════════════════════════════════════════════════
+# ITA
+# ═════════════════════════════════════════════════════════════════════════
+
 def send_ita_report(results: list[dict], config: dict) -> bool:
-    """Format and send ITA CFD report to Telegram."""
-    lines = ["<b>ITA CFD Report</b>", ""]
+    """Generate ITA PDF report and send via Telegram with top-5 caption."""
+    from shared.pdf_report import generate_ita_pdf
+
+    pdf_path = generate_ita_pdf(results, config)
+    caption = _build_ita_caption(results, config)
+    ok = send_document(pdf_path, caption=caption)
+    return ok
+
+
+def _build_ita_caption(results: list[dict], config: dict) -> str:
+    """Build short caption with top 5 tickers for ITA."""
+    lines = ["<b>ITA CFD Report</b>"]
 
     if results:
         gates = results[0].get("gates", {})
         vix = gates.get("vix_value", 0)
-        vix_ok = gates.get("vix_ok", True)
+        vix_ok = "OK" if gates.get("vix_ok", True) else "HIGH"
         adx = gates.get("adx_value", 0)
-        adx_ok = gates.get("adx_ok", True)
-        lines.append(
-            f"Gates: VIX {vix} {'OK' if vix_ok else 'HIGH'} | "
-            f"ADX {adx} {'OK' if adx_ok else 'LOW'}"
-        )
+        adx_ok = "OK" if gates.get("adx_ok", True) else "LOW"
+        lines.append(f"VIX {vix:.0f} {vix_ok} | ADX {adx:.0f} {adx_ok}")
         lines.append("")
 
-    go_results = [r for r in results if r["status"] == "GO"]
-    watch_results = [r for r in results if r["status"] == "WATCH"]
-    skip_results = [r for r in results if r["status"] == "SKIP"]
-
-    if go_results:
-        lines.append(f"<b>GO ({len(go_results)})</b>")
-        for r in go_results:
-            _append_ita_ticker(lines, r, config)
+    top = _top_n_results(results)
+    if top:
+        lines.append("<b>Top 5:</b>")
+        for r in top:
+            pm = f"{r['premarket_pct']:+.1f}%"
+            lines.append(
+                f"{r['status']} {r['ticker']} {r['score']}/{r['max_score']} "
+                f"| {r['entry_method']} | SL {r['stop_loss']:.2f}"
+            )
         lines.append("")
 
-    if watch_results:
-        lines.append(f"<b>WATCH ({len(watch_results)})</b>")
-        for r in watch_results:
-            gate_info = f"  [{','.join(r['gate_reasons'])}]" if r.get("gate_reasons") else ""
-            _append_ita_ticker(lines, r, config, gate_info)
-        lines.append("")
+    go = sum(1 for r in results if r["status"] == "GO")
+    watch = sum(1 for r in results if r["status"] == "WATCH")
+    skip = sum(1 for r in results if r["status"] == "SKIP")
+    lines.append(f"{go} GO | {watch} WATCH | {skip} SKIP")
 
-    if skip_results:
-        tickers = ", ".join(r["ticker"] for r in skip_results)
-        lines.append(f"<i>Skip ({len(skip_results)}): {tickers}</i>")
-        lines.append("")
-
-    lines.append(
-        f"<b>{len(go_results)} GO | {len(watch_results)} WATCH | "
-        f"{len(skip_results)} SKIP</b>"
-    )
-    return send_message("\n".join(lines))
-
-
-def _append_ita_ticker(
-    lines: list[str], r: dict, config: dict, suffix: str = "",
-) -> None:
-    """Append a single ITA ticker block to lines."""
-    pm = f"{r['premarket_pct']:+.1f}%"
-    lines.append(
-        f"  <b>{r['ticker']}</b> {r['score']}/{r['max_score']} "
-        f"{r['entry_method']} {pm}{suffix}"
-    )
-    lines.append(
-        f"  SL {r['stop_loss']:.2f} | TP1 {r['tp1_price']:.2f} | "
-        f"Trail {r['chandelier_stop']:.2f}"
-    )
-    close = r.get("last_close", 0)
-    size = r["position_size"]
-    if close > 0 and size > 0:
-        leverage = config.get("position_sizing", {}).get("leverage", 5)
-        notional = size * close
-        margin = notional / leverage if leverage > 0 else notional
-        lines.append(f"  {size} sh / {notional:,.0f} not. / {margin:,.0f} margin")
+    return "\n".join(lines)
 
 
 def send_ita_deepdive_prompt(results: list[dict], config: dict) -> bool:
@@ -268,134 +323,106 @@ def send_ita_deepdive_prompt(results: list[dict], config: dict) -> bool:
     return send_message(prompt)
 
 
-def send_etf_report(results: list[dict], config: dict, correlations: dict) -> bool:
-    """Format and send ETF report to Telegram."""
-    lines = ["\U0001f4ca <b>ETF Report</b>", ""]
+# ═════════════════════════════════════════════════════════════════════════
+# ETF
+# ═════════════════════════════════════════════════════════════════════════
 
-    # Gates
+def send_etf_report(results: list[dict], config: dict,
+                    correlations: dict) -> bool:
+    """Generate ETF PDF report and send via Telegram with top-5 caption."""
+    from shared.pdf_report import generate_etf_pdf
+
+    pdf_path = generate_etf_pdf(results, config, correlations)
+    caption = _build_etf_caption(results, config, correlations)
+    ok = send_document(pdf_path, caption=caption)
+    return ok
+
+
+def _build_etf_caption(results: list[dict], config: dict,
+                       correlations: dict) -> str:
+    """Build short caption with top 5 ETFs."""
+    lines = ["<b>ETF Report</b>"]
+
     if results:
         gates = results[0].get("gates", {})
         vix = gates.get("vix_value", 0)
-        vix_ok = gates.get("vix_ok", True)
-        bench_ok = gates.get("bench_ok", True)
+        vix_ok = "OK" if gates.get("vix_ok", True) else "HIGH"
+        bench_ok = "OK" if gates.get("bench_ok", True) else "DOWN"
         adx = gates.get("adx_value", 0)
-        adx_ok = gates.get("adx_ok", True)
-        bench = config.get("benchmark", "CSSPX.MI")
-
-        lines.append(
-            f"VIX: {vix} {'✅' if vix_ok else '❌'} | "
-            f"{bench}: {'✅' if bench_ok else '❌'} | "
-            f"ADX: {adx} {'✅' if adx_ok else '❌'}"
-        )
-
-        if correlations.get("any_correlated"):
-            for t1, t2, corr in correlations["correlated_pairs"]:
-                lines.append(f"⚠️ CORR: {t1}/{t2} = {corr}")
+        adx_ok = "OK" if gates.get("adx_ok", True) else "LOW"
+        lines.append(f"VIX {vix:.0f} {vix_ok} | Bench {bench_ok} | ADX {adx:.0f} {adx_ok}")
         lines.append("")
 
-    # Table
-    for r in results:
-        status = r["status"]
-        icon = {"GO": "🟢", "WATCH": "🟡", "SKIP": "🔴"}.get(status, "⚪")
-        gate_info = ""
-        if r.get("gate_reasons"):
-            gate_info = f" ({','.join(r['gate_reasons'])})"
-
-        lines.append(
-            f"{icon} <b>{r['ticker']}</b> {r['score']}/{r['max_score']} "
-            f"{status}{gate_info}"
-        )
-
-        if status in ("GO", "WATCH"):
-            pm = f"{r['premarket_pct']:+.2f}%"
-            lines.append(f"   Premkt: {pm}")
+    top = _top_n_results(results)
+    if top:
+        lines.append("<b>Top 5:</b>")
+        for r in top:
             lines.append(
-                f"   Stop: €{r['stop_loss']:.2f} | TP1: €{r['tp1_price']:.2f} | "
-                f"Trail: €{r['chandelier_stop']:.2f}"
+                f"{r['status']} {r['ticker']} {r['score']}/{r['max_score']} "
+                f"| SL {r['stop_loss']:.2f} | {r['position_size']} sh"
             )
-            close = r.get("last_close", 0)
-            size = r["position_size"]
-            if close > 0 and size > 0:
-                notional = size * close
-                comm = config.get("position_sizing", {}).get("commission", 2.95)
-                lines.append(
-                    f"   Size: {size} shares (€{notional:,.0f}) | "
-                    f"Comm: €{comm * 2:.2f} RT"
-                )
-            lines.append("")
+        lines.append("")
 
-    # Summary
     go = sum(1 for r in results if r["status"] == "GO")
     watch = sum(1 for r in results if r["status"] == "WATCH")
     skip = sum(1 for r in results if r["status"] == "SKIP")
-    lines.append(f"<b>{go} GO | {watch} WATCH | {skip} SKIP</b>")
+    lines.append(f"{go} GO | {watch} WATCH | {skip} SKIP")
 
-    return send_message("\n".join(lines))
+    return "\n".join(lines)
 
 
-# =========================================================================
+# ═════════════════════════════════════════════════════════════════════════
 # US S&P 500 CFD
-# =========================================================================
+# ═════════════════════════════════════════════════════════════════════════
 
 def send_us_report(results: list[dict], config: dict) -> bool:
-    """Format and send US S&P 500 CFD report to Telegram.
+    """Generate US PDF report and send via Telegram with top-5 caption."""
+    from shared.pdf_report import generate_us_pdf
 
-    Shows top-N ranked tickers in detail, remaining GO/WATCH compactly.
-    """
-    top_n = config.get("alerts", {}).get("top_n", 5)
-    lines = [f"<b>US S&P 500 CFD — Top {top_n}</b>", ""]
+    pdf_path = generate_us_pdf(results, config)
+    caption = _build_us_caption(results, config)
+    ok = send_document(pdf_path, caption=caption)
+    return ok
+
+
+def _build_us_caption(results: list[dict], config: dict) -> str:
+    """Build short caption with top 5 US tickers (uses rank if available)."""
+    lines = ["<b>US S&P 500 CFD Report</b>"]
 
     if results:
         gates = results[0].get("gates", {})
         vix = gates.get("vix_value", 0)
-        vix_ok = gates.get("vix_ok", True)
+        vix_ok = "OK" if gates.get("vix_ok", True) else "HIGH"
         adx = gates.get("adx_value", 0)
-        adx_ok = gates.get("adx_ok", True)
-        lines.append(
-            f"Gates: VIX {vix} {'OK' if vix_ok else 'HIGH'} | "
-            f"ADX {adx} {'OK' if adx_ok else 'LOW'}"
-        )
+        adx_ok = "OK" if gates.get("adx_ok", True) else "LOW"
+        lines.append(f"VIX {vix:.0f} {vix_ok} | ADX {adx:.0f} {adx_ok}")
         lines.append("")
 
+    # Prefer ranked tickers; fall back to top-N by score
     ranked = [r for r in results if r.get("rank", 0) > 0]
-    remaining = [r for r in results if r["status"] in ("GO", "WATCH") and r.get("rank", 0) == 0]
+    if ranked:
+        ranked.sort(key=lambda r: r["rank"])
+        top = ranked[:TOP_N_CAPTION]
+    else:
+        top = _top_n_results(results)
 
-    for r in ranked:
-        gate_info = f"  [{','.join(r['gate_reasons'])}]" if r.get("gate_reasons") else ""
-        rs_pct = f" | RS {r.get('rs_value', 0):+.1f}%" if r.get("rs_value") else ""
-        pm = f"{r['premarket_pct']:+.1f}%"
-
-        lines.append(
-            f"#{r['rank']} <b>{r['ticker']}</b> {r['status']} "
-            f"{r['score']}/{r['max_score']}{rs_pct}{gate_info}"
-        )
-        lines.append(
-            f"  {r['entry_method']} | Premkt {pm}"
-        )
-        lines.append(
-            f"  SL {r['stop_loss']:.2f} | TP1 {r['tp1_price']:.2f} | "
-            f"Trail {r['chandelier_stop']:.2f}"
-        )
-        close = r.get("last_close", 0)
-        size = r["position_size"]
-        if close > 0 and size > 0:
-            leverage = config.get("position_sizing", {}).get("leverage", 5)
-            notional = size * close
-            margin = notional / leverage if leverage > 0 else notional
-            lines.append(f"  {size} sh / ${notional:,.0f} not. / ${margin:,.0f} margin")
-        lines.append("")
-
-    if remaining:
-        tickers_str = ", ".join(f"{r['ticker']}({r['score']})" for r in remaining)
-        lines.append(f"<i>Also GO/WATCH: {tickers_str}</i>")
+    if top:
+        lines.append("<b>Top 5:</b>")
+        for r in top:
+            rank_str = f"#{r['rank']} " if r.get("rank", 0) > 0 else ""
+            rs_str = f" RS{r.get('rs_value', 0):+.1f}%" if r.get("rs_value") else ""
+            lines.append(
+                f"{rank_str}{r['status']} {r['ticker']} "
+                f"{r['score']}/{r['max_score']}{rs_str} | {r['entry_method']}"
+            )
         lines.append("")
 
     go = sum(1 for r in results if r["status"] == "GO")
     watch = sum(1 for r in results if r["status"] == "WATCH")
     skip = sum(1 for r in results if r["status"] == "SKIP")
-    lines.append(f"<b>{go} GO | {watch} WATCH | {skip} SKIP</b>")
+    lines.append(f"{go} GO | {watch} WATCH | {skip} SKIP")
 
-    return send_message("\n".join(lines))
+    return "\n".join(lines)
 
 
 def send_us_deepdive_prompt(results: list[dict], config: dict) -> bool:

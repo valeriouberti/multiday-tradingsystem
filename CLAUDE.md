@@ -20,8 +20,9 @@ project/
 │   ├── data.py             ← yfinance data fetching with cache
 │   ├── indicators.py       ← Common indicators (EMA, MACD, RSI, MFI, RS, gates, entry helpers)
 │   ├── position_sizing.py  ← CFD + ETF position sizing (shared)
+│   ├── pdf_report.py       ← PDF report generation (top 5, action plan, Perplexity prompt)
 │   ├── report_utils.py     ← Shared Rich formatting (check_cell, status_text)
-│   └── telegram.py         ← Telegram notifications
+│   └── telegram.py         ← Telegram PDF delivery + top-5 captions
 ├── validator_ita/
 │   ├── __init__.py
 │   ├── scorer.py           ← 6 checks + 2 gates scorer
@@ -35,6 +36,7 @@ project/
 │   ├── indicators.py       ← ETF-specific: bench health + correlations
 │   ├── scorer.py           ← 6 checks + 4 gates scorer
 │   └── report.py           ← Rich table + CSV (EUR, broker cash format)
+
 ├── backtester/
 │   ├── __init__.py
 │   ├── data.py             ← Historical data fetching with warmup buffer
@@ -52,9 +54,9 @@ project/
 │   ├── us-validator.yml    ← 13:15 CEST Mon-Fri + workflow_dispatch
 │   └── etf-validator.yml   ← 14:00 CEST Mon-Fri + workflow_dispatch
 ├── output/
-│   ├── reports_ita/        ← Daily CSV reports (ITA)
-│   ├── reports_us/         ← Daily CSV reports (US)
-│   ├── reports_etf/        ← Daily CSV reports (ETF)
+│   ├── reports_ita/        ← Daily CSV + PDF reports (ITA)
+│   ├── reports_us/         ← Daily CSV + PDF reports (US)
+│   ├── reports_etf/        ← Daily CSV + PDF reports (ETF)
 │   ├── optimization_ita/   ← Optuna results (ITA)
 │   ├── optimization_us/    ← Optuna results (US)
 │   └── optimization_etf/   ← Optuna results (ETF)
@@ -118,6 +120,7 @@ Entry timing helpers:
 - matplotlib >= 3.7
 - python-dotenv == 1.0.1
 - optuna >= 3.0
+- fpdf2 >= 2.7
 
 ## Running
 
@@ -186,4 +189,4 @@ The backtester uses vectorized signals + bar-by-bar simulation:
 - ITA: triggered at 8:30 CET Mon-Fri or via workflow_dispatch with `--tickers` override
 - US: triggered at 13:15 CET Mon-Fri or via workflow_dispatch with `--tickers` override
 - ETF: triggered at 14:00 CET Mon-Fri or via workflow_dispatch with tickers input
-- Telegram notifications via TELEGRAM_BOT_TOKEN + TELEGRAM_CHAT_ID secrets
+- Telegram PDF reports (top 5 + Perplexity prompt) via TELEGRAM_BOT_TOKEN + TELEGRAM_CHAT_ID secrets
