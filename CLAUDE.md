@@ -12,9 +12,10 @@ project/
 ├── config_ita.yaml         ← ITA config (39 FTSE MIB stocks, Optuna WFA tuned params)
 ├── config_us.yaml          ← US config (100 S&P 500 stocks + 33-stock optimization sample)
 ├── config_etf.yaml         ← ETF config (sector ETFs, edit daily)
-├── main_ita.py             ← Entry point: ITA CFD strategy (--tickers override)
-├── main_us.py              ← Entry point: US S&P 500 CFD strategy (--tickers override)
-├── main_etf.py             ← Entry point: ETF strategy
+├── main.py                 ← Unified entry point (--mode ita/us/etf, --tickers override)
+├── main_ita.py             ← Wrapper → main.py --mode ita (backward compat)
+├── main_us.py              ← Wrapper → main.py --mode us (backward compat)
+├── main_etf.py             ← Wrapper → main.py --mode etf (backward compat)
 ├── shared/
 │   ├── __init__.py
 │   ├── data.py             ← yfinance data fetching with cache
@@ -126,11 +127,11 @@ Entry timing helpers:
 
 ### Daily Validation
 ```bash
-python main_ita.py                                    # All 39 FTSE MIB stocks
-python main_ita.py --tickers "ISP.MI,UCG.MI,LDO.MI"  # Override with specific tickers
-python main_us.py                                     # Top 100 S&P 500 stocks
-python main_us.py --tickers "AAPL,MSFT,NVDA"         # Override with specific tickers
-python main_etf.py                                    # Sector ETFs
+python main.py --mode ita                                    # All 39 FTSE MIB stocks
+python main.py --mode ita --tickers "ISP.MI,UCG.MI,LDO.MI"  # Override with specific tickers
+python main.py --mode us                                     # Top 100 S&P 500 stocks
+python main.py --mode us --tickers "AAPL,MSFT,NVDA"         # Override with specific tickers
+python main.py --mode etf                                    # Sector ETFs
 ```
 
 ### Backtesting

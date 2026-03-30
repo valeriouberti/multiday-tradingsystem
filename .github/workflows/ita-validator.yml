@@ -37,14 +37,16 @@ jobs:
       - name: Run ITA validator
         run: |
           if [ -n "${{ github.event.inputs.tickers }}" ]; then
-            python main_ita.py --config config_ita.yaml --tickers "${{ github.event.inputs.tickers }}"
+            python main.py --mode ita --config config_ita.yaml --tickers "${{ github.event.inputs.tickers }}"
           else
-            python main_ita.py --config config_ita.yaml
+            python main.py --mode ita --config config_ita.yaml
           fi
 
-      - name: Upload report CSV
+      - name: Upload reports
         uses: actions/upload-artifact@v4
         with:
           name: ita-report-${{ github.run_id }}
-          path: output/reports_ita/*.csv
+          path: |
+            output/reports_ita/*.csv
+            output/reports_ita/*.pdf
           retention-days: 30

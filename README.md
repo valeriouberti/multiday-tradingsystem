@@ -24,11 +24,11 @@ export TELEGRAM_BOT_TOKEN="..."
 export TELEGRAM_CHAT_ID="..."
 
 # Daily validation
-python main_ita.py                                    # ITA — all 39 FTSE MIB stocks
-python main_ita.py --tickers "ISP.MI,UCG.MI,LDO.MI"  # ITA — specific tickers
-python main_us.py                                     # US — top 100 S&P 500 stocks
-python main_us.py --tickers "AAPL,MSFT,NVDA"          # US — specific tickers
-python main_etf.py                                    # ETF — sector ETFs
+python main.py --mode ita                                    # ITA — all 39 FTSE MIB stocks
+python main.py --mode ita --tickers "ISP.MI,UCG.MI,LDO.MI"  # ITA — specific tickers
+python main.py --mode us                                     # US — top 100 S&P 500 stocks
+python main.py --mode us --tickers "AAPL,MSFT,NVDA"          # US — specific tickers
+python main.py --mode etf                                    # ETF — sector ETFs
 ```
 
 ---
@@ -166,9 +166,10 @@ and sent via Telegram.
 
 ```
 project/
-├── main_ita.py             ← ITA CFD entry point (39 FTSE MIB stocks)
-├── main_us.py              ← US CFD entry point (100 S&P 500 stocks)
-├── main_etf.py             ← ETF entry point (sector ETFs)
+├── main.py                 ← Unified entry point (--mode ita/us/etf)
+├── main_ita.py             ← Wrapper → main.py --mode ita (backward compat)
+├── main_us.py              ← Wrapper → main.py --mode us (backward compat)
+├── main_etf.py             ← Wrapper → main.py --mode etf (backward compat)
 ├── config_ita.yaml         ← ITA config (tickers + tuned params)
 ├── config_us.yaml          ← US config (tickers + optimization sample)
 ├── config_etf.yaml         ← ETF config (tickers + params)

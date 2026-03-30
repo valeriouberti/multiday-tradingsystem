@@ -54,7 +54,7 @@ FORMAT: Concise. Bullet points. No filler.
 ### 13:15 — Script US (automatico)
 
 ```bash
-python main_us.py    # scansiona tutti i ~100 titoli S&P 500
+python main.py --mode us    # scansiona tutti i ~100 titoli S&P 500
 ```
 
 Lo script:

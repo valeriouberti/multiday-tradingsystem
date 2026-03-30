@@ -25,14 +25,14 @@
 | **07:30** | Tutte | Macro veto (EU + US) | 2 min |
 | **07:30** | ETF | Prompt 0 — overnight check | 3 min |
 | **08:00** | ITA CFD | Prompt 1 — market context ITA (Perplexity) | 3 min |
-| **08:30** | ITA CFD | `python main_ita.py` → PDF report (top 5) su Telegram | 2 min |
+| **08:30** | ITA CFD | `python main.py --mode ita` → PDF report (top 5) su Telegram | 2 min |
 | **08:35** | ITA CFD | Copia Prompt Perplexity dal PDF → deep dive | 3 min |
 | **09:00** | ITA CFD | Entry su broker (GAP_UP/PB/ORB/BZ) | 5 min |
 | **13:00** | US CFD | Prompt 1 — market context US (Perplexity) | 3 min |
-| **13:15** | US CFD | `python main_us.py` → PDF report (top 5) su Telegram | 3 min |
+| **13:15** | US CFD | `python main.py --mode us` → PDF report (top 5) su Telegram | 3 min |
 | **13:20** | US CFD | Copia Prompt Perplexity dal PDF → deep dive | 3 min |
 | **13:30** | ETF | Prompt 1 + 2 (schedulati, pausa pranzo) | 8 min |
-| **13:45** | ETF | `python main_etf.py` + aggiorna config | 2 min |
+| **13:45** | ETF | `python main.py --mode etf` + aggiorna config | 2 min |
 | **14:30-16:30** | ETF | Entry su broker (buy a mercato) | 5 min |
 | **15:30** | US CFD | Entry su broker (GAP_UP/PB/ORB/BZ) | 5 min |
 | **17:00** | ITA CFD | Deadline ITA — no entry dopo | 0 min |

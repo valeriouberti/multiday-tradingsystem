@@ -146,7 +146,7 @@ CORRELATION CHECK: [result]
 Aggiorna `config_etf.yaml` con i 3 ticker, poi:
 
 ```bash
-python main_etf.py
+python main.py --mode etf
 ```
 
 ### 14:30-16:30 — ETF Entry (broker app)

@@ -51,7 +51,7 @@ FORMATO: Sii conciso. Bullet point. No filler.
 ### 08:30 — Script ITA (automatico)
 
 ```bash
-python main_ita.py    # scansiona tutti i 40 titoli FTSE MIB
+python main.py --mode ita    # scansiona tutti i 40 titoli FTSE MIB
 ```
 
 Lo script:
