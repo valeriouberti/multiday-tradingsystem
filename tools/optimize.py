@@ -8,13 +8,13 @@ Performance: indicators are precomputed once per ticker; each trial only
 applies threshold comparisons (~10x faster than recomputing pandas-ta).
 
 Usage:
-    python optimize_optuna.py --mode ita                    # ITA simple
-    python optimize_optuna.py --mode us                     # US simple
-    python optimize_optuna.py --mode etf                    # ETF simple
-    python optimize_optuna.py --mode ita --wfa              # ITA walk-forward
-    python optimize_optuna.py --mode us --wfa               # US walk-forward
-    python optimize_optuna.py --mode etf --wfa              # ETF walk-forward
-    python optimize_optuna.py --mode ita --trials 500       # more trials
+    python tools/optimize.py --mode ita                    # ITA simple
+    python tools/optimize.py --mode us                     # US simple
+    python tools/optimize.py --mode etf                    # ETF simple
+    python tools/optimize.py --mode ita --wfa              # ITA walk-forward
+    python tools/optimize.py --mode us --wfa               # US walk-forward
+    python tools/optimize.py --mode etf --wfa              # ETF walk-forward
+    python tools/optimize.py --mode ita --trials 500       # more trials
 """
 
 import argparse
@@ -67,18 +67,18 @@ WFA_WINDOWS = [
 
 MODE_CONFIG = {
     "ita": {
-        "config_path": "config_ita.yaml",
+        "config_path": "config/ita.yaml",
         "benchmark": "ETFMIB.MI",
         "bt_mode": "ita",
     },
     "us": {
-        "config_path": "config_us.yaml",
+        "config_path": "config/us.yaml",
         "benchmark": "SPY",
         "bt_mode": "ita",  # same CFD engine mode (leverage)
         "use_sample": True,  # use optimization_sample from config
     },
     "etf": {
-        "config_path": "config_etf.yaml",
+        "config_path": "config/etf.yaml",
         "benchmark": "CSSPX.MI",
         "bt_mode": "etf",
     },

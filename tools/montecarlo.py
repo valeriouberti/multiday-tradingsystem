@@ -6,12 +6,12 @@ then shuffles trade order N times to produce confidence intervals on
 equity, drawdown, and probability of ruin.
 
 Usage:
-    python montecarlo.py --mode ita                          # ITA, 10k sims
-    python montecarlo.py --mode us                           # US, 10k sims
-    python montecarlo.py --mode etf                          # ETF, 10k sims
-    python montecarlo.py --mode ita --simulations 50000      # more sims
-    python montecarlo.py --mode us --save-plot               # save histogram
-    python montecarlo.py --mode ita --start 2022-01-01       # custom period
+    python tools/montecarlo.py --mode ita                          # ITA, 10k sims
+    python tools/montecarlo.py --mode us                           # US, 10k sims
+    python tools/montecarlo.py --mode etf                          # ETF, 10k sims
+    python tools/montecarlo.py --mode ita --simulations 50000      # more sims
+    python tools/montecarlo.py --mode us --save-plot               # save histogram
+    python tools/montecarlo.py --mode ita --start 2022-01-01       # custom period
 """
 
 import argparse
@@ -38,18 +38,18 @@ console = Console()
 
 MODE_CONFIG = {
     "ita": {
-        "config_path": "config_ita.yaml",
+        "config_path": "config/ita.yaml",
         "benchmark": "ETFMIB.MI",
         "bt_mode": "ita",
     },
     "us": {
-        "config_path": "config_us.yaml",
+        "config_path": "config/us.yaml",
         "benchmark": "SPY",
         "bt_mode": "ita",
         "use_sample": True,
     },
     "etf": {
-        "config_path": "config_etf.yaml",
+        "config_path": "config/etf.yaml",
         "benchmark": "CSSPX.MI",
         "bt_mode": "etf",
     },

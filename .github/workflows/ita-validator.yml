@@ -37,9 +37,9 @@ jobs:
       - name: Run ITA validator
         run: |
           if [ -n "${{ github.event.inputs.tickers }}" ]; then
-            python main.py --mode ita --config config_ita.yaml --tickers "${{ github.event.inputs.tickers }}"
+            python main.py --mode ita --config config/ita.yaml --tickers "${{ github.event.inputs.tickers }}"
           else
-            python main.py --mode ita --config config_ita.yaml
+            python main.py --mode ita --config config/ita.yaml
           fi
 
       - name: Upload reports

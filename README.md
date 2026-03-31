@@ -77,20 +77,20 @@ python main.py --mode etf                                    # ETF — sector ET
 
 ```bash
 # Single ticker backtest
-python backtest.py --ticker ISP.MI --start 2023-01-01 --end 2024-12-31
+python tools/backtest.py --ticker ISP.MI --start 2023-01-01 --end 2024-12-31
 
 # Monte Carlo simulation (trade-order shuffling)
-python montecarlo.py --mode ita --simulations 10000
-python montecarlo.py --mode us --simulations 10000 --save-plot
-python montecarlo.py --mode etf --simulations 10000
+python tools/montecarlo.py --mode ita --simulations 10000
+python tools/montecarlo.py --mode us --simulations 10000 --save-plot
+python tools/montecarlo.py --mode etf --simulations 10000
 
 # Optuna Bayesian optimization
-python optimize_optuna.py --mode ita --trials 300          # ITA single-period
-python optimize_optuna.py --mode us --trials 300           # US single-period
-python optimize_optuna.py --mode etf --trials 300          # ETF single-period
-python optimize_optuna.py --mode ita --wfa --trials 200    # ITA Walk-Forward Analysis
-python optimize_optuna.py --mode us --wfa --trials 200     # US Walk-Forward Analysis
-python optimize_optuna.py --mode etf --wfa --trials 200    # ETF Walk-Forward Analysis
+python tools/optimize.py --mode ita --trials 300          # ITA single-period
+python tools/optimize.py --mode us --trials 300           # US single-period
+python tools/optimize.py --mode etf --trials 300          # ETF single-period
+python tools/optimize.py --mode ita --wfa --trials 200    # ITA Walk-Forward Analysis
+python tools/optimize.py --mode us --wfa --trials 200     # US Walk-Forward Analysis
+python tools/optimize.py --mode etf --wfa --trials 200    # ETF Walk-Forward Analysis
 ```
 
 **Optuna** uses TPE (Tree-structured Parzen Estimator) with precomputed indicators
@@ -166,60 +166,56 @@ and sent via Telegram.
 
 ```
 project/
-├── main.py                 ← Unified entry point (--mode ita/us/etf)
-├── main_ita.py             ← Wrapper → main.py --mode ita (backward compat)
-├── main_us.py              ← Wrapper → main.py --mode us (backward compat)
-├── main_etf.py             ← Wrapper → main.py --mode etf (backward compat)
-├── config_ita.yaml         ← ITA config (tickers + tuned params)
-├── config_us.yaml          ← US config (tickers + optimization sample)
-├── config_etf.yaml         ← ETF config (tickers + params)
-├── shared/
-│   ├── data.py             ← yfinance data fetching with cache
-│   ├── indicators.py       ← Common indicators (EMA, MACD, RSI, MFI, RS, gates)
-│   ├── position_sizing.py  ← CFD + ETF position sizing
-│   ├── pdf_report.py       ← PDF report generation (ITA, US, ETF)
-│   ├── report_utils.py     ← Shared Rich formatting helpers
-│   └── telegram.py         ← Telegram PDF delivery + top-5 captions
-├── validator_ita/
-│   ├── scorer.py           ← 6 checks + 2 gates scorer
-│   └── report.py           ← Rich table + CSV + PDF (EUR, broker CFD)
-├── validator_us/
-│   ├── scorer.py           ← 6 checks + 2 gates scorer
-│   └── report.py           ← Rich table + CSV + PDF (USD, broker CFD)
-├── validator_etf/
-│   ├── indicators.py       ← ETF-specific: bench health + correlations
-│   ├── scorer.py           ← 6 checks + 4 gates scorer
-│   └── report.py           ← Rich table + CSV + PDF (EUR, broker cash)
+├── main.py                     ← Unified entry point (--mode ita/us/etf)
+├── config/
+│   ├── ita.yaml                ← ITA config (tickers + tuned params)
+│   ├── us.yaml                 ← US config (tickers + optimization sample)
+│   └── etf.yaml                ← ETF config (tickers + params)
+├── core/
+│   ├── data.py                 ← yfinance data fetching with cache
+│   ├── indicators.py           ← Common indicators (EMA, MACD, RSI, MFI, RS, gates)
+│   └── position_sizing.py      ← CFD + ETF position sizing
+├── strategies/
+│   ├── ita.py                  ← ITA scorer: 6 checks + 2 gates
+│   ├── us.py                   ← US scorer: 6 checks + 2 gates + ranking
+│   └── etf.py                  ← ETF scorer: 6 checks + 4 gates + bench/corr
+├── reporting/
+│   ├── ita_report.py           ← ITA Rich table + CSV
+│   ├── us_report.py            ← US Rich table + CSV
+│   ├── etf_report.py           ← ETF Rich table + CSV
+│   ├── pdf_report.py           ← PDF report generation (ITA, US, ETF)
+│   ├── report_utils.py         ← Shared Rich formatting helpers
+│   └── telegram.py             ← Telegram PDF delivery + top-5 captions
 ├── backtester/
-│   ├── data.py             ← Historical data fetching with warmup
-│   ├── signals.py          ← Vectorized signal generation
-│   ├── engine.py           ← Bar-by-bar simulation (SL/TP1/Chandelier)
-│   ├── metrics.py          ← Performance analytics (Sharpe, Sortino, Calmar)
-│   └── plots.py            ← Equity curve + trade markers
-├── backtest.py             ← CLI: single-ticker backtest
-├── optimize_optuna.py      ← Optuna Bayesian optimization (ITA + US)
-├── montecarlo.py           ← Monte Carlo simulation (confidence intervals)
+│   ├── data.py                 ← Historical data fetching with warmup
+│   ├── signals.py              ← Vectorized signal generation
+│   ├── engine.py               ← Bar-by-bar simulation (SL/TP1/Chandelier)
+│   ├── metrics.py              ← Performance analytics (Sharpe, Sortino, Calmar)
+│   └── plots.py                ← Equity curve + trade markers
+├── tools/
+│   ├── backtest.py             ← CLI: single-ticker backtest
+│   ├── montecarlo.py           ← Monte Carlo simulation (confidence intervals)
+│   └── optimize.py             ← Optuna Bayesian optimization (ITA + US + ETF)
 ├── scripts/
-│   └── update_tickers.py   ← CI helper: update tickers in YAML
+│   └── update_tickers.py       ← CI helper: update tickers in YAML
 ├── .github/workflows/
-│   ├── ita-validator.yml   ← 08:30 CEST Mon-Fri
-│   ├── us-validator.yml    ← 13:15 CEST Mon-Fri
-│   └── etf-validator.yml   ← 14:00 CEST Mon-Fri
+│   ├── ita-validator.yml       ← 08:30 CEST Mon-Fri
+│   ├── us-validator.yml        ← 13:15 CEST Mon-Fri
+│   └── etf-validator.yml       ← 14:00 CEST Mon-Fri
 ├── docs/
-│   ├── STRATEGY.md         ← Strategy overview + shared rules
-│   ├── STRATEGY_ITA.md     ← ITA prompts, params, tickers
-│   ├── STRATEGY_US.md      ← US prompts, params, universe
-│   ├── STRATEGY_ETF.md     ← ETF prompts, gates, ETF list
-│   └── STRATEGY_ETF.md     ← ETF prompts, gates, ETF list
+│   ├── STRATEGY.md             ← Strategy overview + shared rules
+│   ├── STRATEGY_ITA.md         ← ITA prompts, params, tickers
+│   ├── STRATEGY_US.md          ← US prompts, params, universe
+│   └── STRATEGY_ETF.md         ← ETF prompts, gates, ETF list
 ├── pinescript/
 │   ├── ita_cfd_validator.pine  ← TradingView ITA (v1.2)
 │   └── us_cfd_validator.pine   ← TradingView US (v1.0)
 └── output/
-    ├── reports_ita/        ← Daily CSV + PDF reports (ITA)
-    ├── reports_us/         ← Daily CSV + PDF reports (US)
-    ├── reports_etf/        ← Daily CSV + PDF reports (ETF)
-    ├── optimization_ita/   ← Optuna results (ITA)
-    └── optimization_us/    ← Optuna results (US)
+    ├── reports_ita/            ← Daily CSV + PDF reports (ITA)
+    ├── reports_us/             ← Daily CSV + PDF reports (US)
+    ├── reports_etf/            ← Daily CSV + PDF reports (ETF)
+    ├── optimization_ita/       ← Optuna results (ITA)
+    └── optimization_us/        ← Optuna results (US)
 ```
 
 ---

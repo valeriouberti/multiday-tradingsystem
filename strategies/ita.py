@@ -1,20 +1,21 @@
-from shared.data import get_daily, get_premarket_change
-from shared.indicators import (
+from core.data import get_daily, get_h1, get_premarket_change
+from core.indicators import (
     check_ema_cross,
     check_macd,
     check_mfi,
     check_rs_vs_benchmark,
     check_rsi,
     check_weekly_ema,
+    detect_entry_method,
     get_atr_stop,
     get_chandelier_stop,
     get_tp1_price,
 )
-from shared.position_sizing import get_etf_position_size as get_position_size
+from core.position_sizing import get_cfd_position_size as get_position_size
 
 
 def score_ticker(ticker: str, cfg: dict, gates: dict) -> dict:
-    """Run 6 scored checks + apply 4 gates for a sector ETF.
+    """Run 6 scored checks + apply 2 gates for an Italian stock.
 
     Scored checks (6):
       1. EMA20 > EMA50 Daily    (trend)
@@ -22,15 +23,14 @@ def score_ticker(ticker: str, cfg: dict, gates: dict) -> dict:
       3. MACD > Signal          (momentum)
       4. RSI > 50               (momentum filter)
       5. MFI > 50               (money flow)
-      6. RS vs benchmark rising (sector rotation, 20d/5d ROC)
+      6. RS vs FTSE MIB rising  (relative strength, 20d/5d ROC)
 
-    Gates (4):
+    Gates (2):
       - VIX Regime: VIX < 25
-      - Benchmark Health: EMA20 > EMA50
-      - Correlation: pairwise corr < 0.7
-      - ADX Regime: ADX(14) >= 20 on benchmark
+      - ADX Regime: ADX(14) >= 20 on FTSE MIB
     """
     df_daily = get_daily(ticker, cfg)
+    df_h1 = get_h1(ticker, cfg)
 
     if df_daily.empty:
         return _empty_result(ticker, cfg, gates)
@@ -56,6 +56,7 @@ def score_ticker(ticker: str, cfg: dict, gates: dict) -> dict:
     chandelier_stop = get_chandelier_stop(df_daily, cfg)
     tp1_price = get_tp1_price(df_daily, cfg)
     pos_size = get_position_size(df_daily, cfg)
+    entry_method = detect_entry_method(df_daily, df_h1, cfg)
     premarket_pct = get_premarket_change(ticker)
 
     go_thresh = cfg["alerts"]["go_threshold"]
@@ -70,10 +71,6 @@ def score_ticker(ticker: str, cfg: dict, gates: dict) -> dict:
     gate_reasons = []
     if not gates.get("vix_ok", True):
         gate_reasons.append("VIX")
-    if not gates.get("bench_ok", True):
-        gate_reasons.append("BENCH")
-    if gates.get("is_correlated", False):
-        gate_reasons.append("CORR")
     if not gates.get("adx_ok", True):
         gate_reasons.append("ADX")
 
@@ -94,13 +91,14 @@ def score_ticker(ticker: str, cfg: dict, gates: dict) -> dict:
         "chandelier_stop": chandelier_stop,
         "tp1_price": tp1_price,
         "position_size": pos_size,
+        "entry_method": entry_method,
         "premarket_pct": premarket_pct,
         "status": status,
     }
 
 
 def _empty_result(ticker: str, cfg: dict, gates: dict) -> dict:
-    benchmark = cfg.get("benchmark", "CSSPX.MI")
+    benchmark = cfg.get("benchmark", "ETFMIB.MI")
     return {
         "ticker": ticker,
         "score": 0,
@@ -120,6 +118,7 @@ def _empty_result(ticker: str, cfg: dict, gates: dict) -> dict:
         "chandelier_stop": 0.0,
         "tp1_price": 0.0,
         "position_size": 0,
+        "entry_method": "WAIT",
         "premarket_pct": 0.0,
         "status": "SKIP",
     }

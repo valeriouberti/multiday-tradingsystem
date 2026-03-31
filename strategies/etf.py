@@ -1,42 +1,38 @@
-from shared.data import get_daily, get_h1, get_premarket_change
-from shared.indicators import (
+import pandas_ta as ta
+
+from core.data import get_daily, get_premarket_change
+from core.indicators import (
     check_ema_cross,
     check_macd,
     check_mfi,
     check_rs_vs_benchmark,
     check_rsi,
     check_weekly_ema,
-    detect_entry_method,
     get_atr_stop,
     get_chandelier_stop,
-    get_mfi_value,
-    get_rs_roc_value,
-    get_rsi_value,
     get_tp1_price,
 )
-from shared.position_sizing import get_cfd_position_size as get_position_size
-
-# Entry method priority for ranking (higher = better)
-ENTRY_PRIORITY = {"GAP_UP": 4, "BONE_ZONE": 3, "PULLBACK": 2, "ORB": 1, "WAIT": 0}
+from core.position_sizing import get_etf_position_size as get_position_size
 
 
 def score_ticker(ticker: str, cfg: dict, gates: dict) -> dict:
-    """Run 6 scored checks + apply 2 gates for a US S&P 500 stock.
+    """Run 6 scored checks + apply 4 gates for a sector ETF.
 
     Scored checks (6):
       1. EMA20 > EMA50 Daily    (trend)
       2. Weekly EMA20 > EMA50   (structural trend)
       3. MACD > Signal          (momentum)
-      4. RSI > threshold        (momentum filter)
-      5. MFI > threshold        (money flow)
-      6. RS vs SPY rising       (relative strength, 20d/5d ROC)
+      4. RSI > 50               (momentum filter)
+      5. MFI > 50               (money flow)
+      6. RS vs benchmark rising (sector rotation, 20d/5d ROC)
 
-    Gates (2):
-      - VIX Regime: VIX < threshold
-      - ADX Regime: ADX(14) >= threshold on SPY
+    Gates (4):
+      - VIX Regime: VIX < 25
+      - Benchmark Health: EMA20 > EMA50
+      - Correlation: pairwise corr < 0.7
+      - ADX Regime: ADX(14) >= 20 on benchmark
     """
     df_daily = get_daily(ticker, cfg)
-    df_h1 = get_h1(ticker, cfg)
 
     if df_daily.empty:
         return _empty_result(ticker, cfg, gates)
@@ -62,13 +58,7 @@ def score_ticker(ticker: str, cfg: dict, gates: dict) -> dict:
     chandelier_stop = get_chandelier_stop(df_daily, cfg)
     tp1_price = get_tp1_price(df_daily, cfg)
     pos_size = get_position_size(df_daily, cfg)
-    entry_method = detect_entry_method(df_daily, df_h1, cfg)
     premarket_pct = get_premarket_change(ticker)
-
-    # Numeric values for ranking
-    rs_value = get_rs_roc_value(df_daily, cfg)
-    rsi_value = get_rsi_value(df_daily, cfg)
-    mfi_value = get_mfi_value(df_daily, cfg)
 
     go_thresh = cfg["alerts"]["go_threshold"]
     watch_thresh = cfg["alerts"]["watch_threshold"]
@@ -82,6 +72,10 @@ def score_ticker(ticker: str, cfg: dict, gates: dict) -> dict:
     gate_reasons = []
     if not gates.get("vix_ok", True):
         gate_reasons.append("VIX")
+    if not gates.get("bench_ok", True):
+        gate_reasons.append("BENCH")
+    if gates.get("is_correlated", False):
+        gate_reasons.append("CORR")
     if not gates.get("adx_ok", True):
         gate_reasons.append("ADX")
 
@@ -102,17 +96,13 @@ def score_ticker(ticker: str, cfg: dict, gates: dict) -> dict:
         "chandelier_stop": chandelier_stop,
         "tp1_price": tp1_price,
         "position_size": pos_size,
-        "entry_method": entry_method,
         "premarket_pct": premarket_pct,
         "status": status,
-        "rs_value": rs_value,
-        "rsi_value": rsi_value,
-        "mfi_value": mfi_value,
     }
 
 
 def _empty_result(ticker: str, cfg: dict, gates: dict) -> dict:
-    benchmark = cfg.get("benchmark", "SPY")
+    benchmark = cfg.get("benchmark", "CSSPX.MI")
     return {
         "ticker": ticker,
         "score": 0,
@@ -132,42 +122,62 @@ def _empty_result(ticker: str, cfg: dict, gates: dict) -> dict:
         "chandelier_stop": 0.0,
         "tp1_price": 0.0,
         "position_size": 0,
-        "entry_method": "WAIT",
         "premarket_pct": 0.0,
         "status": "SKIP",
-        "rs_value": 0.0,
-        "rsi_value": 0.0,
-        "mfi_value": 0.0,
     }
 
 
-def rank_results(results: list[dict], top_n: int = 5) -> list[dict]:
-    """Rank GO/WATCH results and return the top N.
+# =========================================================================
+# ETF-specific gates (was validator_etf/indicators.py)
+# =========================================================================
 
-    Ranking criteria (lexicographic):
-      1. Score (descending) — 6/6 beats 5/6
-      2. RS ROC % (descending) — strongest relative momentum vs SPY
-      3. Entry method priority (descending) — active setup beats WAIT
+def check_bench_health(cfg: dict) -> tuple[bool, str]:
+    """Gate: Benchmark EMA fast > EMA slow (broad market uptrend)."""
+    benchmark = cfg.get("benchmark", "CSSPX.MI")
+    fast = cfg["strategy"].get("bench_ema_fast", 20)
+    slow = cfg["strategy"].get("bench_ema_slow", 50)
+    try:
+        df = get_daily(benchmark, cfg)
+        if df.empty:
+            return False, ""
+        ema_fast = ta.ema(df["Close"], length=fast)
+        ema_slow = ta.ema(df["Close"], length=slow)
+        if ema_fast is None or ema_slow is None:
+            return False, ""
+        return bool(ema_fast.iloc[-1] > ema_slow.iloc[-1]), ""
+    except Exception:
+        return False, ""
 
-    SKIP results are excluded. All results get a 'rank' field
-    (1-based for top-N, 0 for non-ranked).
+
+def check_correlations(tickers: list[str], cfg: dict) -> dict:
+    """Gate: Pairwise correlation of daily returns.
+
+    If two sector ETFs are >0.7 correlated over 20 days, they are
+    effectively the same trade — combined position size should be halved.
     """
-    actionable = [r for r in results if r["status"] in ("GO", "WATCH")]
-    skips = [r for r in results if r["status"] == "SKIP"]
+    lookback = cfg["strategy"].get("correlation_lookback", 20)
+    threshold = cfg["strategy"].get("correlation_threshold", 0.7)
+    returns = {}
+    for ticker in tickers:
+        df = get_daily(ticker, cfg)
+        if df.empty or len(df) < lookback + 1:
+            continue
+        ret = df["Close"].pct_change().dropna().iloc[-lookback:]
+        returns[ticker] = ret
 
-    actionable.sort(
-        key=lambda r: (
-            r["score"],
-            r.get("rs_value", 0.0),
-            ENTRY_PRIORITY.get(r["entry_method"], 0),
-        ),
-        reverse=True,
-    )
+    correlated_pairs = []
+    tickers_with_data = list(returns.keys())
+    for i in range(len(tickers_with_data)):
+        for j in range(i + 1, len(tickers_with_data)):
+            t1, t2 = tickers_with_data[i], tickers_with_data[j]
+            common = returns[t1].index.intersection(returns[t2].index)
+            if len(common) < 10:
+                continue
+            corr = float(returns[t1].loc[common].corr(returns[t2].loc[common]))
+            if corr > threshold:
+                correlated_pairs.append((t1, t2, round(corr, 2)))
 
-    for i, r in enumerate(actionable):
-        r["rank"] = i + 1 if i < top_n else 0
-
-    for r in skips:
-        r["rank"] = 0
-
-    return actionable[:top_n] + actionable[top_n:] + skips
+    return {
+        "correlated_pairs": correlated_pairs,
+        "any_correlated": len(correlated_pairs) > 0,
+    }

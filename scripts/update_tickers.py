@@ -1,8 +1,8 @@
 """Update tickers in a config YAML file.
 
 Usage:
-    python scripts/update_tickers.py config_ita.yaml "STLAM.MI,FCT.MI,ENI.MI"
-    python scripts/update_tickers.py config_etf.yaml "XDW0.MI,DFND.MI,XDWI.MI"
+    python scripts/update_tickers.py config/ita.yaml "STLAM.MI,FCT.MI,ENI.MI"
+    python scripts/update_tickers.py config/etf.yaml "XDW0.MI,DFND.MI,XDWI.MI"
 """
 
 import sys

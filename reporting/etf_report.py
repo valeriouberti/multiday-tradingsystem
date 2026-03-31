@@ -6,8 +6,8 @@ from rich.console import Console
 from rich.table import Table
 from rich.text import Text
 
-from shared.report_utils import check_cell as _check_cell
-from shared.report_utils import status_text as _status_text
+from reporting.report_utils import check_cell as _check_cell
+from reporting.report_utils import status_text as _status_text
 
 console = Console()
 

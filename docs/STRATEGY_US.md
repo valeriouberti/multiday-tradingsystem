@@ -143,7 +143,7 @@ Setup TradingView:
 
 ## Universo (Top 100 S&P 500)
 
-Definito in `config_us.yaml` — 100 titoli suddivisi per settore GICS:
+Definito in `config/us.yaml` — 100 titoli suddivisi per settore GICS:
 Technology (15), Financials (12), Health Care (10), Consumer Disc. (8),
 Industrials (10), Energy (7), Communication (5), Consumer Staples (7),
 Utilities (5), Materials (5), Real Estate (4), Semiconductors (6), Mega-cap (3).

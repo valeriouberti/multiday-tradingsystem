@@ -1,6 +1,6 @@
 """Vectorized signal generation for backtesting.
 
-Translates the point-in-time checks from shared/indicators.py into full
+Translates the point-in-time checks from core/indicators.py into full
 time-series signals so each bar gets a GO/WATCH/SKIP status.
 """
 

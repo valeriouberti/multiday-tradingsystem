@@ -37,9 +37,9 @@ jobs:
       - name: Run US validator
         run: |
           if [ -n "${{ github.event.inputs.tickers }}" ]; then
-            python main.py --mode us --config config_us.yaml --tickers "${{ github.event.inputs.tickers }}"
+            python main.py --mode us --config config/us.yaml --tickers "${{ github.event.inputs.tickers }}"
           else
-            python main.py --mode us --config config_us.yaml
+            python main.py --mode us --config config/us.yaml
           fi
 
       - name: Upload reports

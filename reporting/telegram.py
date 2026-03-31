@@ -194,7 +194,7 @@ def _top_n_results(results: list[dict], n: int = TOP_N_CAPTION) -> list[dict]:
 
 def send_ita_report(results: list[dict], config: dict) -> bool:
     """Generate ITA PDF report and send via Telegram with top-5 caption."""
-    from shared.pdf_report import generate_ita_pdf
+    from reporting.pdf_report import generate_ita_pdf
 
     pdf_path = generate_ita_pdf(results, config)
     caption = _build_ita_caption(results, config)
@@ -330,7 +330,7 @@ def send_ita_deepdive_prompt(results: list[dict], config: dict) -> bool:
 def send_etf_report(results: list[dict], config: dict,
                     correlations: dict) -> bool:
     """Generate ETF PDF report and send via Telegram with top-5 caption."""
-    from shared.pdf_report import generate_etf_pdf
+    from reporting.pdf_report import generate_etf_pdf
 
     pdf_path = generate_etf_pdf(results, config, correlations)
     caption = _build_etf_caption(results, config, correlations)
@@ -377,7 +377,7 @@ def _build_etf_caption(results: list[dict], config: dict,
 
 def send_us_report(results: list[dict], config: dict) -> bool:
     """Generate US PDF report and send via Telegram with top-5 caption."""
-    from shared.pdf_report import generate_us_pdf
+    from reporting.pdf_report import generate_us_pdf
 
     pdf_path = generate_us_pdf(results, config)
     caption = _build_us_caption(results, config)

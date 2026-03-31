@@ -1,7 +1,7 @@
 import pandas as pd
 import pandas_ta as ta
 
-from shared.data import get_daily, get_weekly
+from core.data import get_daily, get_weekly
 
 
 # =========================================================================

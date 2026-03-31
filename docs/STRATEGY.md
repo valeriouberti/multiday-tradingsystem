@@ -177,9 +177,9 @@ export TELEGRAM_CHAT_ID="987654321"
 
 | Script | Descrizione |
 | :-- | :-- |
-| `backtest.py` | Backtest singolo ticker (`--ticker ISP.MI --start 2023-01-01`) |
-| `optimize_optuna.py` | Optuna Bayesian optimization (ITA + US, simple + WFA) |
-| `montecarlo.py` | Monte Carlo simulation (trade-order shuffling, confidence intervals) |
+| `tools/backtest.py` | Backtest singolo ticker (`--ticker ISP.MI --start 2023-01-01`) |
+| `tools/optimize.py` | Optuna Bayesian optimization (ITA + US, simple + WFA) |
+| `tools/montecarlo.py` | Monte Carlo simulation (trade-order shuffling, confidence intervals) |
 
 ### Trade Lifecycle
 
@@ -201,10 +201,10 @@ Indicatori precomputati una volta sola per ticker (~10x piu veloce del grid sear
 **Due modalita:**
 
 ```bash
-python optimize_optuna.py --mode ita --trials 300          # ITA single-period
-python optimize_optuna.py --mode us --trials 300           # US single-period
-python optimize_optuna.py --mode ita --wfa --trials 200    # ITA Walk-Forward
-python optimize_optuna.py --mode us --wfa --trials 200     # US Walk-Forward
+python tools/optimize.py --mode ita --trials 300          # ITA single-period
+python tools/optimize.py --mode us --trials 300           # US single-period
+python tools/optimize.py --mode ita --wfa --trials 200    # ITA Walk-Forward
+python tools/optimize.py --mode us --wfa --trials 200     # US Walk-Forward
 ```
 
 **Spazio di ricerca:**
@@ -219,15 +219,15 @@ go_threshold:  3-5
 
 ---
 
-### Monte Carlo Simulation (`montecarlo.py`)
+### Monte Carlo Simulation (`tools/montecarlo.py`)
 
 Shuffla l'ordine dei trade N volte per produrre intervalli di confidenza su equity,
 drawdown, e probabilita di ruin. Output: percentili (P5/P25/P50/P75/P95), probabilita
 di profitto/ruin, istogrammi.
 
 ```bash
-python montecarlo.py --mode ita --simulations 10000              # ITA
-python montecarlo.py --mode us --simulations 10000 --save-plot   # US + grafici
+python tools/montecarlo.py --mode ita --simulations 10000              # ITA
+python tools/montecarlo.py --mode us --simulations 10000 --save-plot   # US + grafici
 ```
 
 ---

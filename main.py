@@ -14,8 +14,8 @@ import time
 
 import yaml
 
-from shared.data import prefetch_all
-from shared.indicators import check_adx_regime, check_vix_regime
+from core.data import prefetch_all
+from core.indicators import check_adx_regime, check_vix_regime
 
 logging.basicConfig(
     level=logging.INFO,
@@ -28,7 +28,7 @@ logger = logging.getLogger(__name__)
 
 MODE_CONFIG = {
     "ita": {
-        "config_default": "config_ita.yaml",
+        "config_default": "config/ita.yaml",
         "description": "Multiday CFD Trading Validator — Italian Stocks",
         "benchmark_default": "ETFMIB.MI",
         "has_tickers_override": True,
@@ -37,7 +37,7 @@ MODE_CONFIG = {
         "dedup_tickers": False,
     },
     "us": {
-        "config_default": "config_us.yaml",
+        "config_default": "config/us.yaml",
         "description": "Multiday CFD Trading Validator — US S&P 500",
         "benchmark_default": "SPY",
         "has_tickers_override": True,
@@ -46,7 +46,7 @@ MODE_CONFIG = {
         "dedup_tickers": True,
     },
     "etf": {
-        "config_default": "config_etf.yaml",
+        "config_default": "config/etf.yaml",
         "description": "Multiday CFD Trading Validator — ETF Sector Strategy",
         "benchmark_default": "CSSPX.MI",
         "has_tickers_override": False,
@@ -60,19 +60,19 @@ MODE_CONFIG = {
 def _get_mode_modules(mode: str):
     """Lazy-import mode-specific scorer, report, and telegram modules."""
     if mode == "ita":
-        from validator_ita.scorer import score_ticker
-        from validator_ita.report import print_report, save_csv
-        from shared.telegram import send_ita_report as send_report
+        from strategies.ita import score_ticker
+        from reporting.ita_report import print_report, save_csv
+        from reporting.telegram import send_ita_report as send_report
         return score_ticker, None, print_report, save_csv, send_report
     elif mode == "us":
-        from validator_us.scorer import score_ticker, rank_results
-        from validator_us.report import print_report, save_csv
-        from shared.telegram import send_us_report as send_report
+        from strategies.us import score_ticker, rank_results
+        from reporting.us_report import print_report, save_csv
+        from reporting.telegram import send_us_report as send_report
         return score_ticker, rank_results, print_report, save_csv, send_report
     elif mode == "etf":
-        from validator_etf.scorer import score_ticker
-        from validator_etf.report import print_report, save_csv
-        from shared.telegram import send_etf_report as send_report
+        from strategies.etf import score_ticker
+        from reporting.etf_report import print_report, save_csv
+        from reporting.telegram import send_etf_report as send_report
         return score_ticker, None, print_report, save_csv, send_report
     else:
         raise ValueError(f"Unknown mode: {mode}")
@@ -146,7 +146,7 @@ def main():
     correlated_tickers: set[str] = set()
 
     if mcfg["has_etf_gates"]:
-        from validator_etf.indicators import check_bench_health, check_correlations
+        from strategies.etf import check_bench_health, check_correlations
         bench_ok, _ = check_bench_health(config)
         correlations = check_correlations(tickers, config)
         for t1, t2, _ in correlations["correlated_pairs"]:

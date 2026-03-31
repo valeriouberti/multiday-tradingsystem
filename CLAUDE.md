@@ -9,35 +9,29 @@ and ETF (sector ETFs on Borsa Italiana, cash). Designed for multiday swing tradi
 ```
 project/
 ├── CLAUDE.md               ← This file
-├── config_ita.yaml         ← ITA config (39 FTSE MIB stocks, Optuna WFA tuned params)
-├── config_us.yaml          ← US config (100 S&P 500 stocks + 33-stock optimization sample)
-├── config_etf.yaml         ← ETF config (sector ETFs, edit daily)
-├── main.py                 ← Unified entry point (--mode ita/us/etf, --tickers override)
-├── main_ita.py             ← Wrapper → main.py --mode ita (backward compat)
-├── main_us.py              ← Wrapper → main.py --mode us (backward compat)
-├── main_etf.py             ← Wrapper → main.py --mode etf (backward compat)
-├── shared/
+├── main.py                 ← Unified entry point (--mode ita/us/etf)
+├── config/
+│   ├── ita.yaml            ← ITA config (39 FTSE MIB stocks, Optuna WFA tuned params)
+│   ├── us.yaml             ← US config (100 S&P 500 stocks + 33-stock optimization sample)
+│   └── etf.yaml            ← ETF config (sector ETFs, edit daily)
+├── core/
 │   ├── __init__.py
 │   ├── data.py             ← yfinance data fetching with cache
 │   ├── indicators.py       ← Common indicators (EMA, MACD, RSI, MFI, RS, gates, entry helpers)
-│   ├── position_sizing.py  ← CFD + ETF position sizing (shared)
-│   ├── pdf_report.py       ← PDF report generation (top 5, action plan, Perplexity prompt)
+│   └── position_sizing.py  ← CFD + ETF position sizing (shared)
+├── strategies/
+│   ├── __init__.py
+│   ├── ita.py              ← ITA: 6 checks + 2 gates scorer
+│   ├── us.py               ← US: 6 checks + 2 gates scorer + ranking
+│   └── etf.py              ← ETF: 6 checks + 4 gates scorer + bench health + correlations
+├── reporting/
+│   ├── __init__.py
+│   ├── ita_report.py       ← ITA Rich table + CSV (EUR, broker CFD format)
+│   ├── us_report.py        ← US Rich table + CSV (USD, broker CFD format)
+│   ├── etf_report.py       ← ETF Rich table + CSV (EUR, broker cash format)
+│   ├── pdf_report.py       ← PDF report generation (ITA, US, ETF)
 │   ├── report_utils.py     ← Shared Rich formatting (check_cell, status_text)
 │   └── telegram.py         ← Telegram PDF delivery + top-5 captions
-├── validator_ita/
-│   ├── __init__.py
-│   ├── scorer.py           ← 6 checks + 2 gates scorer
-│   └── report.py           ← Rich table + CSV (EUR, broker CFD format)
-├── validator_us/
-│   ├── __init__.py
-│   ├── scorer.py           ← 6 checks + 2 gates scorer (benchmark: SPY)
-│   └── report.py           ← Rich table + CSV (USD, broker CFD format)
-├── validator_etf/
-│   ├── __init__.py
-│   ├── indicators.py       ← ETF-specific: bench health + correlations
-│   ├── scorer.py           ← 6 checks + 4 gates scorer
-│   └── report.py           ← Rich table + CSV (EUR, broker cash format)
-
 ├── backtester/
 │   ├── __init__.py
 │   ├── data.py             ← Historical data fetching with warmup buffer
@@ -45,9 +39,10 @@ project/
 │   ├── engine.py           ← Bar-by-bar simulation (SL/TP1/Chandelier lifecycle)
 │   ├── metrics.py          ← Performance analytics (Sharpe, Sortino, Calmar, drawdown)
 │   └── plots.py            ← Equity curve + trade markers (matplotlib)
-├── backtest.py             ← CLI: single-ticker backtest (--mode, --ticker, --start, --end)
-├── optimize_optuna.py      ← Optuna Bayesian optimization (ITA + US + ETF, simple + WFA)
-├── montecarlo.py           ← Monte Carlo simulation (ITA + US + ETF, trade-order shuffling)
+├── tools/
+│   ├── backtest.py         ← CLI: single-ticker backtest (--mode, --ticker, --start, --end)
+│   ├── montecarlo.py       ← Monte Carlo simulation (ITA + US + ETF, trade-order shuffling)
+│   └── optimize.py         ← Optuna Bayesian optimization (ITA + US + ETF, simple + WFA)
 ├── scripts/
 │   └── update_tickers.py   ← CI helper to update tickers in YAML
 ├── .github/workflows/
@@ -73,9 +68,9 @@ project/
 ```
 
 ## Config Files
-- `config_ita.yaml`: 39 FTSE MIB stocks (.MI suffix), benchmark ETFMIB.MI, leverage 5:1, Optuna WFA tuned params
-- `config_us.yaml`: 100 S&P 500 stocks, 33-stock optimization sample, benchmark SPY, leverage 5:1, Optuna WFA tuned
-- `config_etf.yaml`: 3 sector ETFs (.MI suffix), benchmark CSSPX.MI, no leverage
+- `config/ita.yaml`: 39 FTSE MIB stocks (.MI suffix), benchmark ETFMIB.MI, leverage 5:1, Optuna WFA tuned params
+- `config/us.yaml`: 100 S&P 500 stocks, 33-stock optimization sample, benchmark SPY, leverage 5:1, Optuna WFA tuned
+- `config/etf.yaml`: 3 sector ETFs (.MI suffix), benchmark CSSPX.MI, no leverage
 - Tickers override via `--tickers` CLI flag (ITA + US)
 
 ## Technical Indicators Used
@@ -136,17 +131,17 @@ python main.py --mode etf                                    # Sector ETFs
 
 ### Backtesting
 ```bash
-python backtest.py --ticker ISP.MI --start 2023-01-01 --end 2024-12-31   # Single ticker
-python montecarlo.py --mode ita --simulations 10000                       # Monte Carlo ITA
-python montecarlo.py --mode us --simulations 10000 --save-plot            # Monte Carlo US + plots
+python tools/backtest.py --ticker ISP.MI --start 2023-01-01 --end 2024-12-31   # Single ticker
+python tools/montecarlo.py --mode ita --simulations 10000                       # Monte Carlo ITA
+python tools/montecarlo.py --mode us --simulations 10000 --save-plot            # Monte Carlo US + plots
 ```
 
 ### Parameter Optimization (Optuna)
 ```bash
-python optimize_optuna.py --mode ita --trials 300          # ITA single-period
-python optimize_optuna.py --mode us --trials 300           # US single-period (33 sector-sample)
-python optimize_optuna.py --mode ita --wfa --trials 200    # ITA Walk-Forward Analysis
-python optimize_optuna.py --mode us --wfa --trials 200     # US Walk-Forward Analysis
+python tools/optimize.py --mode ita --trials 300          # ITA single-period
+python tools/optimize.py --mode us --trials 300           # US single-period (33 sector-sample)
+python tools/optimize.py --mode ita --wfa --trials 200    # ITA Walk-Forward Analysis
+python tools/optimize.py --mode us --wfa --trials 200     # US Walk-Forward Analysis
 ```
 
 ## Tuned Parameters
@@ -181,13 +176,13 @@ The backtester uses vectorized signals + bar-by-bar simulation:
 3. CFD margin accounting: entry cost = notional / leverage (not full notional)
 
 ### Optimization
-**Optuna Bayesian** (`optimize_optuna.py`): TPE sampler with precomputed indicators (~10x faster). Works for both ITA (39 tickers) and US (33 sector-sample stocks). Two modes: single-period and Walk-Forward Analysis (8 rolling windows). Search space: MFI 35-60, RSI 35-60, ADX 10-30, GO 3-5. Converges in ~300 trials.
+**Optuna Bayesian** (`tools/optimize.py`): TPE sampler with precomputed indicators (~10x faster). Works for both ITA (39 tickers) and US (33 sector-sample stocks). Two modes: single-period and Walk-Forward Analysis (8 rolling windows). Search space: MFI 35-60, RSI 35-60, ADX 10-30, GO 3-5. Converges in ~300 trials.
 
 ### Monte Carlo
-**Monte Carlo** (`montecarlo.py`): Shuffles trade order 10,000+ times to produce confidence intervals on equity, drawdown, and probability of ruin. Output: P5/P25/P50/P75/P95 percentiles, histogram plots.
+**Monte Carlo** (`tools/montecarlo.py`): Shuffles trade order 10,000+ times to produce confidence intervals on equity, drawdown, and probability of ruin. Output: P5/P25/P50/P75/P95 percentiles, histogram plots.
 
 ## Automation (GitHub Actions)
 - ITA: triggered at 8:30 CET Mon-Fri or via workflow_dispatch with `--tickers` override
 - US: triggered at 13:15 CET Mon-Fri or via workflow_dispatch with `--tickers` override
 - ETF: triggered at 14:00 CET Mon-Fri or via workflow_dispatch with tickers input
-- Telegram PDF reports (top 5 + Perplexity prompt) via TELEGRAM_BOT_TOKEN + TELEGRAM_CHAT_ID secrets
+- Telegram notifications via TELEGRAM_BOT_TOKEN + TELEGRAM_CHAT_ID secrets

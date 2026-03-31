@@ -2,9 +2,9 @@
 """Backtest entry point for ITA CFD and ETF strategies.
 
 Usage:
-    python backtest.py --mode ita --ticker ENI.MI --start 2024-01-01
-    python backtest.py --mode etf --start 2024-06-01 --end 2025-12-31
-    python backtest.py --mode ita --config config_ita.yaml --start 2024-01-01 --save-plot
+    python tools/backtest.py --mode ita --ticker ENI.MI --start 2024-01-01
+    python tools/backtest.py --mode etf --start 2024-06-01 --end 2025-12-31
+    python tools/backtest.py --mode ita --config config/ita.yaml --start 2024-01-01 --save-plot
 """
 
 import argparse
@@ -53,7 +53,7 @@ def main() -> None:
     if args.config:
         config_path = args.config
     else:
-        config_path = "config_ita.yaml" if args.mode == "ita" else "config_etf.yaml"
+        config_path = "config/ita.yaml" if args.mode == "ita" else "config/etf.yaml"
     cfg = load_config(config_path)
 
     # Override capital if specified

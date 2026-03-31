@@ -37,10 +37,10 @@ jobs:
       - name: Update tickers (if provided)
         if: github.event.inputs.tickers != ''
         run: |
-          python scripts/update_tickers.py config_etf.yaml "${{ github.event.inputs.tickers }}"
+          python scripts/update_tickers.py config/etf.yaml "${{ github.event.inputs.tickers }}"
 
       - name: Run ETF validator
-        run: python main.py --mode etf --config config_etf.yaml
+        run: python main.py --mode etf --config config/etf.yaml
 
       - name: Upload reports
         uses: actions/upload-artifact@v4
@@ -56,6 +56,6 @@ jobs:
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add config_etf.yaml
+          git add config/etf.yaml
           git diff --cached --quiet || git commit -m "Update ETF tickers: ${{ github.event.inputs.tickers }}"
           git push

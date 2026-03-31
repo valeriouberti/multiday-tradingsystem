@@ -143,7 +143,7 @@ CORRELATION CHECK: [result]
 
 ### 13:45 — Script ETF
 
-Aggiorna `config_etf.yaml` con i 3 ticker, poi:
+Aggiorna `config/etf.yaml` con i 3 ticker, poi:
 
 ```bash
 python main.py --mode etf
