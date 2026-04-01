@@ -1,4 +1,4 @@
-"""Unified entry point for all three trading strategies.
+"""Unified entry point for all trading strategies.
 
 Usage:
     python main.py --mode ita                              # ITA — all FTSE MIB stocks
@@ -6,6 +6,8 @@ Usage:
     python main.py --mode us                               # US — top 100 S&P 500
     python main.py --mode us --tickers "AAPL,MSFT,NVDA"    # US — specific tickers
     python main.py --mode etf                              # ETF — sector ETFs
+    python main.py --mode indexcfd                         # Index CFD — major global indices
+    python main.py --mode indexcfd --tickers "SPY,QQQ"     # Index CFD — specific proxies
 """
 
 import argparse
@@ -54,6 +56,15 @@ MODE_CONFIG = {
         "has_etf_gates": True,
         "dedup_tickers": False,
     },
+    "indexcfd": {
+        "config_default": "config/indexcfd.yaml",
+        "description": "Index CFD Trading Validator — Major Global Indices",
+        "benchmark_default": "SPY",
+        "has_tickers_override": True,
+        "has_ranking": False,
+        "has_etf_gates": False,
+        "dedup_tickers": False,
+    },
 }
 
 
@@ -74,6 +85,11 @@ def _get_mode_modules(mode: str):
         from reporting.etf_report import print_report, save_csv
         from reporting.telegram import send_etf_report as send_report
         return score_ticker, None, print_report, save_csv, send_report
+    elif mode == "indexcfd":
+        from strategies.indexcfd import score_ticker
+        from reporting.indexcfd_report import print_report, save_csv
+        from reporting.telegram import send_indexcfd_report as send_report
+        return score_ticker, None, print_report, save_csv, send_report
     else:
         raise ValueError(f"Unknown mode: {mode}")
 
@@ -87,7 +103,7 @@ def main():
     parser = argparse.ArgumentParser(description="Multiday Trading Validator")
     parser.add_argument(
         "--mode", required=True, choices=list(MODE_CONFIG.keys()),
-        help="Strategy mode: ita, us, or etf",
+        help="Strategy mode: ita, us, etf, or indexcfd",
     )
     parser.add_argument(
         "--config",

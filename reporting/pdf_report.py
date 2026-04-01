@@ -619,3 +619,198 @@ def generate_etf_pdf(results: list[dict], config: dict,
     path = os.path.join(out_dir, now.strftime("%Y-%m-%d") + ".pdf")
     pdf.output(path)
     return path
+
+
+# ═════════════════════════════════════════════════════════════════════════
+# INDEX CFD PDF
+# ═════════════════════════════════════════════════════════════════════════
+
+def generate_indexcfd_pdf(results: list[dict], config: dict) -> str:
+    """Generate Index CFD PDF report. Returns path to temp PDF file."""
+    tz = config["session"]["timezone"]
+    try:
+        import zoneinfo
+        now = datetime.now(zoneinfo.ZoneInfo(tz))
+    except Exception:
+        now = datetime.now()
+
+    pdf = _ReportPDF("L", "mm", "A4")
+    pdf.title_text = "Index CFD Report"
+    pdf.date_text = now.strftime("%Y-%m-%d %H:%M %Z")
+    pdf.set_auto_page_break(auto=True, margin=15)
+    pdf.add_page()
+
+    # Gates
+    if results:
+        gates = results[0].get("gates", {})
+        pdf._section_title("Gates")
+        pdf._gate_line("VIX", f"{gates.get('vix_value', 0):.1f}", gates.get("vix_ok", True))
+        benchmark = config.get("benchmark", "SPY")
+        pdf._gate_line(f"ADX ({benchmark})", f"{gates.get('adx_value', 0):.1f}",
+                       gates.get("adx_ok", True))
+        pdf.ln(3)
+
+    # Position sizing
+    ps = config.get("position_sizing", {})
+    pdf.set_font("Helvetica", "", 8)
+    pdf.set_text_color(*_GREY)
+    capital = ps.get("capital", 1000)
+    leverage = ps.get("leverage", 20)
+    risk_pct = ps.get("risk_per_trade", 0.02)
+    pdf.cell(0, 5,
+             f"Capital: ${capital:,.0f} | Risk/trade: {risk_pct*100:.1f}% | "
+             f"Leverage: {leverage}:1 (ESMA major indices)",
+             new_x="LMARGIN", new_y="NEXT")
+    pdf.ln(3)
+
+    # Sort: GO > WATCH > SKIP, then by score desc
+    status_order = {"GO": 0, "WATCH": 1, "SKIP": 2}
+    sorted_results = sorted(
+        results,
+        key=lambda r: (status_order.get(r["status"], 9), -r["score"]),
+    )
+
+    # Table
+    cols = [
+        ("#", 6), ("Index", 22), ("Proxy", 16), ("Score", 12),
+        ("EMA D", 12), ("EMA W", 12), ("MACD", 12), ("RSI", 14),
+        ("MFI", 14), ("RS", 12), ("Premkt", 16), ("Stop", 16),
+        ("TP1", 16), ("Trail", 16), ("Size", 12), ("Entry", 18),
+        ("Status", 15),
+    ]
+    widths = [c[1] for c in cols]
+
+    pdf._section_title("Results")
+    pdf._table_header(cols)
+
+    for i, r in enumerate(sorted_results):
+        checks = r["checks"]
+        values = [
+            str(i + 1),
+            r.get("index_label", r["ticker"]),
+            r["ticker"],
+            f"{r['score']}/{r['max_score']}",
+            _pass_fail(checks["EMA D"]["passed"]),
+            _pass_fail(checks["EMA W"]["passed"]),
+            _pass_fail(checks["MACD"]["passed"]),
+            _pass_fail(checks["RSI"]["passed"]),
+            _pass_fail(checks["MFI"]["passed"]),
+            _pass_fail(checks["RS"]["passed"]),
+            f"{r['premarket_pct']:+.2f}%",
+            f"{r['stop_loss']:.2f}" if r["stop_loss"] > 0 else "N/A",
+            f"{r['tp1_price']:.2f}" if r["tp1_price"] > 0 else "N/A",
+            f"{r['chandelier_stop']:.2f}" if r["chandelier_stop"] > 0 else "N/A",
+            str(r["position_size"]) if r["position_size"] > 0 else "N/A",
+            r["entry_method"],
+            r["status"],
+        ]
+        pdf._table_row(values, widths, i, status=r["status"])
+
+    # Summary
+    go = sum(1 for r in results if r["status"] == "GO")
+    watch = sum(1 for r in results if r["status"] == "WATCH")
+    skip = sum(1 for r in results if r["status"] == "SKIP")
+    pdf._summary_line(go, watch, skip)
+
+    # Action plan for GO/WATCH
+    actionable = [r for r in sorted_results
+                  if r["status"] in ("GO", "WATCH") and r["entry_method"] != "WAIT"]
+    _session_windows = {
+        "SPY": "15:45-16:15 CET (dopo apertura cash US)",
+        "QQQ": "15:45-16:15 CET (dopo apertura cash US)",
+        "DIA": "15:45-16:15 CET (dopo apertura cash US)",
+        "IWM": "15:45-16:15 CET (dopo apertura cash US)",
+        "FEZ": "09:00-09:45 CET (EU cash open)",
+        "EWG": "09:00-09:45 CET (EU cash open)",
+        "EWU": "09:00-09:45 CET (EU/UK cash open)",
+        "EWJ": "09:00-09:45 CET (CFD attivo, JP gia chiuso)",
+    }
+
+    if actionable:
+        pdf.ln(4)
+        pdf._section_title("Action Plan")
+        pdf.set_font("Helvetica", "", 8)
+        for r in actionable:
+            colour = _GREEN if r["status"] == "GO" else _YELLOW
+            label = r.get("index_label", r["ticker"])
+            pdf.set_text_color(*colour)
+            pdf.set_font("Helvetica", "B", 8)
+            pdf.cell(0, 5, f"{label} ({r['ticker']}) - {r['entry_method']}",
+                     new_x="LMARGIN", new_y="NEXT")
+            pdf.set_text_color(30, 30, 30)
+            pdf.set_font("Helvetica", "", 8)
+            close = r.get("last_close", 0)
+            notional = r["position_size"] * close
+            margin = notional / leverage if leverage > 0 else notional
+            pdf.cell(0, 4,
+                     f"  Proxy: ${close:.2f} | SL: ${r['stop_loss']:.2f} | "
+                     f"TP1: ${r['tp1_price']:.2f} | Trail: ${r['chandelier_stop']:.2f}",
+                     new_x="LMARGIN", new_y="NEXT")
+            pdf.cell(0, 4,
+                     f"  {r['position_size']} units | ${notional:,.0f} notional | "
+                     f"${margin:,.0f} margin",
+                     new_x="LMARGIN", new_y="NEXT")
+            session = _session_windows.get(r["ticker"], "check broker")
+            pdf.set_text_color(120, 120, 120)
+            pdf.cell(0, 4, f"  Finestra: {session}",
+                     new_x="LMARGIN", new_y="NEXT")
+            pdf.set_text_color(30, 30, 30)
+            pdf.ln(1)
+
+    # Perplexity prompt — only for GO/WATCH
+    prompt_tickers = [r for r in sorted_results if r["status"] in ("GO", "WATCH")]
+    if prompt_tickers:
+        prompt = _build_indexcfd_perplexity_prompt(prompt_tickers)
+        pdf._copyable_block("Perplexity Prompt  (copy & paste)", prompt)
+
+    # Save
+    out_dir = config.get("output", {}).get("csv_dir", "output/reports_indexcfd")
+    os.makedirs(out_dir, exist_ok=True)
+    path = os.path.join(out_dir, now.strftime("%Y-%m-%d") + ".pdf")
+    pdf.output(path)
+    return path
+
+
+def _build_indexcfd_perplexity_prompt(actionable: list[dict]) -> str:
+    """Build the Index CFD Perplexity deep-dive prompt as plain markdown text."""
+    ticker_lines = []
+    for r in actionable:
+        checks = r["checks"]
+        failed = [n for n, c in checks.items() if not c["passed"]]
+        fail_str = f" (miss: {', '.join(failed)})" if failed else ""
+        label = r.get("index_label", r["ticker"])
+        ticker_lines.append(
+            f"- {label} ({r['ticker']}) {r['status']} {r['score']}/6{fail_str} | "
+            f"${r.get('last_close', 0):.2f} | SL ${r['stop_loss']:.2f}"
+        )
+    tickers_str = "\n".join(ticker_lines)
+
+    return (
+        "Search real-time news. You are a macro risk analyst covering global equity indices.\n"
+        "\n"
+        "My automated technical screener selected these indices for CFD "
+        "multiday swing trades (3-7 sessions, 20:1 leverage via broker):\n"
+        f"{tickers_str}\n"
+        "\n"
+        "Technicals are validated. Find ONLY macro deal-breakers that technicals cannot see.\n"
+        "For each index:\n"
+        "\n"
+        "1. CENTRAL BANK: Rate decision or guidance in next 7 days?\n"
+        "   (FOMC, ECB, BOJ, BOE) YES (date) = caution / NO\n"
+        "2. MACRO DATA: High-impact release in next 48h?\n"
+        "   (CPI, NFP, PMI, GDP) YES (event + date) / NO\n"
+        "3. GEOPOLITICAL: Active risk that could gap the index?\n"
+        "   (trade war, conflict, elections) YES (detail) / NO\n"
+        "4. POSITIONING: Extreme positioning or VIX term structure inversion?\n"
+        "   YES (detail) / NO\n"
+        "\n"
+        "Output (one line per index):\n"
+        "[INDEX] | CB: YES/NO | Macro: YES/NO | Geo: YES/NO | Pos: YES/NO\n"
+        "Verdict: ENTRY / WAIT / SKIP + reason (max 10 words)\n"
+        "\n"
+        "Rules:\n"
+        "- Central bank + high VIX = SKIP\n"
+        "- Macro data imminent + no catalyst = WAIT\n"
+        "- Clean macro calendar + trend confirmed = ENTRY\n"
+        "- Geopolitical risk active = WAIT minimum"
+    )

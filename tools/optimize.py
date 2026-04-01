@@ -82,6 +82,11 @@ MODE_CONFIG = {
         "benchmark": "CSSPX.MI",
         "bt_mode": "etf",
     },
+    "indexcfd": {
+        "config_path": "config/indexcfd.yaml",
+        "benchmark": "SPY",
+        "bt_mode": "ita",  # CFD engine mode (leverage 20:1)
+    },
 }
 
 # All possible mfi_length values in the search space
@@ -905,8 +910,8 @@ def main() -> None:
         description="Optuna parameter optimization for ITA/US CFD and ETF strategies"
     )
     parser.add_argument(
-        "--mode", choices=["ita", "us", "etf"], required=True,
-        help="Strategy mode: ita (FTSE MIB), us (S&P 500), or etf (sector ETFs)",
+        "--mode", choices=list(MODE_CONFIG.keys()), required=True,
+        help="Strategy mode: ita, us, etf, or indexcfd",
     )
     parser.add_argument(
         "--wfa", action="store_true",

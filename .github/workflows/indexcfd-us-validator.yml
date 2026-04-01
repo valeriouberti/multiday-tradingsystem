@@ -1,0 +1,53 @@
+# Index CFD US Validator — runs at 14:45 CET (12:45 UTC summer / 13:45 UTC winter)
+# Covers US index CFDs: S&P 500 (SPY), NASDAQ 100 (QQQ), Dow Jones (DIA), Russell 2000 (IWM)
+# Entry window: 15:45-16:15 CET (dopo apertura cash US)
+#
+# Cron uses UTC. Set to 12:45 UTC = 14:45 CEST (summer). In winter runs at 13:45 CET.
+
+name: Index CFD US Validator
+
+on:
+  schedule:
+    - cron: "45 12 * * 1-5"   # Mon-Fri 12:45 UTC → 14:45 CEST
+  workflow_dispatch:
+    inputs:
+      tickers:
+        description: "Tickers comma-separated (e.g. SPY,QQQ,DIA)"
+        required: false
+        type: string
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    env:
+      TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+      TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v4
+
+      - name: Install dependencies
+        run: uv pip install --system -r requirements.txt
+
+      - name: Run Index CFD US validator
+        run: |
+          if [ -n "${{ github.event.inputs.tickers }}" ]; then
+            python main.py --mode indexcfd --config config/indexcfd.yaml --tickers "${{ github.event.inputs.tickers }}"
+          else
+            python main.py --mode indexcfd --config config/indexcfd.yaml --tickers "SPY,QQQ,DIA,IWM"
+          fi
+
+      - name: Upload reports
+        uses: actions/upload-artifact@v4
+        with:
+          name: indexcfd-us-report-${{ github.run_id }}
+          path: |
+            output/reports_indexcfd/*.csv
+            output/reports_indexcfd/*.pdf
+          retention-days: 30

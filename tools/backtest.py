@@ -1,9 +1,10 @@
 #!/usr/bin/env python3
-"""Backtest entry point for ITA CFD and ETF strategies.
+"""Backtest entry point for ITA CFD, ETF, and Index CFD strategies.
 
 Usage:
     python tools/backtest.py --mode ita --ticker ENI.MI --start 2024-01-01
     python tools/backtest.py --mode etf --start 2024-06-01 --end 2025-12-31
+    python tools/backtest.py --mode indexcfd --ticker SPY --start 2024-01-01
     python tools/backtest.py --mode ita --config config/ita.yaml --start 2024-01-01 --save-plot
 """
 
@@ -21,9 +22,16 @@ from backtester.plots import plot_equity_curve, plot_trades_on_price
 from backtester.signals import compute_all_signals
 
 
+MODE_DEFAULTS = {
+    "ita": {"config": "config/ita.yaml", "benchmark": "ETFMIB.MI", "bt_mode": "ita"},
+    "etf": {"config": "config/etf.yaml", "benchmark": "CSSPX.MI", "bt_mode": "etf"},
+    "indexcfd": {"config": "config/indexcfd.yaml", "benchmark": "SPY", "bt_mode": "ita"},
+}
+
+
 def parse_args() -> argparse.Namespace:
-    parser = argparse.ArgumentParser(description="Backtest ITA/ETF swing trading strategy")
-    parser.add_argument("--mode", choices=["ita", "etf"], default="ita", help="Strategy mode")
+    parser = argparse.ArgumentParser(description="Backtest ITA/ETF/Index CFD swing trading strategy")
+    parser.add_argument("--mode", choices=list(MODE_DEFAULTS.keys()), default="ita", help="Strategy mode")
     parser.add_argument("--config", type=str, default=None, help="Path to YAML config")
     parser.add_argument("--ticker", type=str, default=None, help="Single ticker to backtest (overrides config)")
     parser.add_argument("--start", type=str, required=True, help="Backtest start date (YYYY-MM-DD)")
@@ -50,11 +58,10 @@ def main() -> None:
     )
 
     # Load config
-    if args.config:
-        config_path = args.config
-    else:
-        config_path = "config/ita.yaml" if args.mode == "ita" else "config/etf.yaml"
+    mdef = MODE_DEFAULTS[args.mode]
+    config_path = args.config or mdef["config"]
     cfg = load_config(config_path)
+    bt_mode = mdef["bt_mode"]
 
     # Override capital if specified
     if args.capital:
@@ -62,7 +69,7 @@ def main() -> None:
 
     end_date = args.end or datetime.now().strftime("%Y-%m-%d")
     tickers = [args.ticker] if args.ticker else cfg["tickers"]
-    benchmark = cfg.get("benchmark", "ETFMIB.MI" if args.mode == "ita" else "CSSPX.MI")
+    benchmark = cfg.get("benchmark", mdef["benchmark"])
 
     # Warmup start: push back for indicator lookback
     ws = warmup_start(args.start, extra_bars=100)
@@ -91,7 +98,7 @@ def main() -> None:
             continue
 
         # Compute vectorized signals
-        signals = compute_all_signals(df_daily, df_weekly, bench_daily, vix_daily, cfg, args.mode)
+        signals = compute_all_signals(df_daily, df_weekly, bench_daily, vix_daily, cfg, bt_mode)
 
         # Trim to backtest window (exclude warmup period)
         bt_start = args.start
@@ -107,7 +114,7 @@ def main() -> None:
         print(f"  GO signals in period: {go_count}")
 
         # Run simulation
-        result = run_backtest(signals_bt, df_bt, cfg, ticker=ticker, mode=args.mode)
+        result = run_backtest(signals_bt, df_bt, cfg, ticker=ticker, mode=bt_mode)
         all_results.append((ticker, result))
 
         # Metrics

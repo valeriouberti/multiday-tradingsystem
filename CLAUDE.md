@@ -127,6 +127,7 @@ python main.py --mode ita --tickers "ISP.MI,UCG.MI,LDO.MI"  # Override with spec
 python main.py --mode us                                     # Top 100 S&P 500 stocks
 python main.py --mode us --tickers "AAPL,MSFT,NVDA"         # Override with specific tickers
 python main.py --mode etf                                    # Sector ETFs
+python main.py --mode indexcfd                               # 8 major global index CFDs
 ```
 
 ### Backtesting
@@ -134,6 +135,8 @@ python main.py --mode etf                                    # Sector ETFs
 python tools/backtest.py --ticker ISP.MI --start 2023-01-01 --end 2024-12-31   # Single ticker
 python tools/montecarlo.py --mode ita --simulations 10000                       # Monte Carlo ITA
 python tools/montecarlo.py --mode us --simulations 10000 --save-plot            # Monte Carlo US + plots
+python tools/backtest.py --mode indexcfd --ticker SPY --start 2024-01-01        # Index CFD backtest
+python tools/montecarlo.py --mode indexcfd --simulations 10000                  # Monte Carlo Index CFD
 ```
 
 ### Parameter Optimization (Optuna)
@@ -142,6 +145,8 @@ python tools/optimize.py --mode ita --trials 300          # ITA single-period
 python tools/optimize.py --mode us --trials 300           # US single-period (33 sector-sample)
 python tools/optimize.py --mode ita --wfa --trials 200    # ITA Walk-Forward Analysis
 python tools/optimize.py --mode us --wfa --trials 200     # US Walk-Forward Analysis
+python tools/optimize.py --mode indexcfd --trials 300     # Index CFD single-period
+python tools/optimize.py --mode indexcfd --wfa --trials 200  # Index CFD Walk-Forward Analysis
 ```
 
 ## Tuned Parameters
@@ -166,6 +171,16 @@ python tools/optimize.py --mode us --wfa --trials 200     # US Walk-Forward Anal
 | adx_threshold | 20 | **10** | Consistently selected across all windows |
 | go_threshold | 4 | **4** | WFA mode (5/8 windows use GO=4 or 5) |
 
+### Index CFD (Optuna WFA, 2019-2024)
+
+| Parameter | Default | Tuned | Rationale |
+| :-- | :-- | :-- | :-- |
+| rsi_threshold | 45 | **40** | WFA W5 (best efficiency 1.18) chose 40; consistent with US tuning |
+| mfi_threshold | 40 | **40** | Stable at WFA median, no change needed |
+| vix_threshold | 30 | **30** | Kept as safety net at 20:1 leverage; recent W7-W8 chose 25 |
+| adx_threshold | 15 | **10** | 6/8 WFA windows chose 10; strong consensus |
+| go_threshold | 4 | **4** | Best OOS efficiency (1.18) at go=4; keeps quality filter on 8-instrument universe |
+
 Applied in: config YAML files + PineScript indicators.
 
 ## Backtester Architecture
@@ -176,7 +191,7 @@ The backtester uses vectorized signals + bar-by-bar simulation:
 3. CFD margin accounting: entry cost = notional / leverage (not full notional)
 
 ### Optimization
-**Optuna Bayesian** (`tools/optimize.py`): TPE sampler with precomputed indicators (~10x faster). Works for both ITA (39 tickers) and US (33 sector-sample stocks). Two modes: single-period and Walk-Forward Analysis (8 rolling windows). Search space: MFI 35-60, RSI 35-60, ADX 10-30, GO 3-5. Converges in ~300 trials.
+**Optuna Bayesian** (`tools/optimize.py`): TPE sampler with precomputed indicators (~10x faster). Works for ITA (39 tickers), US (33 sector-sample stocks), and Index CFD (8 ETF proxies). Two modes: single-period and Walk-Forward Analysis (8 rolling windows). Search space: MFI 35-60, RSI 35-60, ADX 10-30, GO 3-5. Converges in ~300 trials.
 
 ### Monte Carlo
 **Monte Carlo** (`tools/montecarlo.py`): Shuffles trade order 10,000+ times to produce confidence intervals on equity, drawdown, and probability of ruin. Output: P5/P25/P50/P75/P95 percentiles, histogram plots.
@@ -185,4 +200,6 @@ The backtester uses vectorized signals + bar-by-bar simulation:
 - ITA: triggered at 8:30 CET Mon-Fri or via workflow_dispatch with `--tickers` override
 - US: triggered at 13:15 CET Mon-Fri or via workflow_dispatch with `--tickers` override
 - ETF: triggered at 14:00 CET Mon-Fri or via workflow_dispatch with tickers input
+- Index CFD EU: triggered at 08:15 CET Mon-Fri (FEZ, EWG, EWU, EWJ) — entry 09:00-09:45 CET
+- Index CFD US: triggered at 14:45 CET Mon-Fri (SPY, QQQ, DIA, IWM) — entry 15:45-16:15 CET
 - Telegram notifications via TELEGRAM_BOT_TOKEN + TELEGRAM_CHAT_ID secrets

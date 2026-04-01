@@ -1,0 +1,69 @@
+# Index CFD Strategy — Major global indices via broker CFD (20:1 ESMA leverage)
+# Data source: US-listed ETF proxies (best OHLCV quality on yfinance)
+# The user trades the actual index CFD on their broker; proxies are for technical validation only.
+
+tickers:
+  # --- US Indices ---
+  - SPY       # S&P 500 → CFD: US500
+  - QQQ       # NASDAQ 100 → CFD: USTEC
+  - DIA       # Dow Jones → CFD: US30
+  - IWM       # Russell 2000 → CFD: US2000
+  # --- European Indices ---
+  - FEZ       # Euro Stoxx 50 → CFD: EU50
+  - EWG       # Germany (MSCI) → CFD: DE40
+  - EWU       # UK (MSCI) → CFD: UK100
+  # --- Asia ---
+  - EWJ       # Japan (MSCI) → CFD: JP225
+
+index_labels:
+  SPY: "S&P 500"
+  QQQ: "NASDAQ 100"
+  DIA: "Dow Jones"
+  IWM: "Russell 2000"
+  FEZ: "Euro Stoxx 50"
+  EWG: "DAX 40"
+  EWU: "FTSE 100"
+  EWJ: "Nikkei 225"
+
+benchmark: SPY
+strategy:
+  ema_fast: 20
+  ema_slow: 50
+  ema_bone: 9
+  weekly_ema_fast: 20
+  weekly_ema_slow: 50
+  macd_fast: 12
+  macd_slow: 26
+  macd_signal: 9
+  rsi_length: 14
+  rsi_threshold: 40
+  mfi_length: 14
+  mfi_threshold: 40
+  atr_length: 14
+  atr_multiplier: 1.5
+  rs_lookback_days: 20
+  rs_roc_days: 5
+  vix_threshold: 30
+  adx_length: 14
+  adx_threshold: 10
+  chandelier_lookback: 22
+  chandelier_atr_mult: 3.0
+  gap_threshold_pct: 0.3
+  data_period_daily: 120d
+  data_period_weekly: 2y
+  data_period_h1: 5d
+position_sizing:
+  capital: 1000
+  risk_per_trade: 0.02
+  leverage: 20
+  max_capital_pct: 0.4
+alerts:
+  go_threshold: 4
+  watch_threshold: 3
+session:
+  timezone: Europe/Rome
+  market_open_utc: "14:30"
+  orb_minutes: 15
+output:
+  save_csv: true
+  csv_dir: output/reports_indexcfd

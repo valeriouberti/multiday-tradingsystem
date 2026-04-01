@@ -1,0 +1,53 @@
+# Index CFD EU Validator — runs at 08:15 CET (06:15 UTC summer / 07:15 UTC winter)
+# Covers European index CFDs: Euro Stoxx 50 (FEZ), DAX 40 (EWG), FTSE 100 (EWU), Nikkei 225 (EWJ)
+# Entry window: 09:00-09:45 CET (EU cash open)
+#
+# Cron uses UTC. Set to 06:15 UTC = 08:15 CEST (summer). In winter runs at 07:15 CET.
+
+name: Index CFD EU Validator
+
+on:
+  schedule:
+    - cron: "15 6 * * 1-5"   # Mon-Fri 06:15 UTC → 08:15 CEST
+  workflow_dispatch:
+    inputs:
+      tickers:
+        description: "Tickers comma-separated (e.g. FEZ,EWG,EWU)"
+        required: false
+        type: string
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    env:
+      TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+      TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v4
+
+      - name: Install dependencies
+        run: uv pip install --system -r requirements.txt
+
+      - name: Run Index CFD EU validator
+        run: |
+          if [ -n "${{ github.event.inputs.tickers }}" ]; then
+            python main.py --mode indexcfd --config config/indexcfd.yaml --tickers "${{ github.event.inputs.tickers }}"
+          else
+            python main.py --mode indexcfd --config config/indexcfd.yaml --tickers "FEZ,EWG,EWU,EWJ"
+          fi
+
+      - name: Upload reports
+        uses: actions/upload-artifact@v4
+        with:
+          name: indexcfd-eu-report-${{ github.run_id }}
+          path: |
+            output/reports_indexcfd/*.csv
+            output/reports_indexcfd/*.pdf
+          retention-days: 30

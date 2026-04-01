@@ -511,3 +511,49 @@ def send_us_deepdive_prompt(results: list[dict], config: dict) -> bool:
     )
 
     return send_message(prompt)
+
+
+# ═════════════════════════════════════════════════════════════════════════
+# INDEX CFD
+# ═════════════════════════════════════════════════════════════════════════
+
+def send_indexcfd_report(results: list[dict], config: dict) -> bool:
+    """Generate Index CFD PDF report and send via Telegram with caption."""
+    from reporting.pdf_report import generate_indexcfd_pdf
+
+    pdf_path = generate_indexcfd_pdf(results, config)
+    caption = _build_indexcfd_caption(results, config)
+    ok = send_document(pdf_path, caption=caption)
+    return ok
+
+
+def _build_indexcfd_caption(results: list[dict], config: dict) -> str:
+    """Build short caption with index results."""
+    lines = ["<b>Index CFD Report</b>"]
+
+    if results:
+        gates = results[0].get("gates", {})
+        vix = gates.get("vix_value", 0)
+        vix_ok = "OK" if gates.get("vix_ok", True) else "HIGH"
+        adx = gates.get("adx_value", 0)
+        adx_ok = "OK" if gates.get("adx_ok", True) else "LOW"
+        lines.append(f"VIX {vix:.0f} {vix_ok} | ADX {adx:.0f} {adx_ok}")
+        lines.append("")
+
+    top = _top_n_results(results)
+    if top:
+        lines.append("<b>Top indices:</b>")
+        for r in top:
+            label = r.get("index_label", r["ticker"])
+            lines.append(
+                f"{r['status']} {label} {r['score']}/{r['max_score']} "
+                f"| {r['entry_method']} | SL {r['stop_loss']:.2f}"
+            )
+        lines.append("")
+
+    go = sum(1 for r in results if r["status"] == "GO")
+    watch = sum(1 for r in results if r["status"] == "WATCH")
+    skip = sum(1 for r in results if r["status"] == "SKIP")
+    lines.append(f"{go} GO | {watch} WATCH | {skip} SKIP")
+
+    return "\n".join(lines)

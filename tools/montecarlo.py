@@ -53,6 +53,11 @@ MODE_CONFIG = {
         "benchmark": "CSSPX.MI",
         "bt_mode": "etf",
     },
+    "indexcfd": {
+        "config_path": "config/indexcfd.yaml",
+        "benchmark": "SPY",
+        "bt_mode": "ita",  # CFD engine mode (leverage 20:1)
+    },
 }
 
 
@@ -180,7 +185,7 @@ def run_montecarlo(
 
 def print_results(results: dict, mode: str) -> None:
     """Print Monte Carlo results as Rich tables."""
-    currency = "$" if mode == "us" else "\u20ac"
+    currency = "$" if mode in ("us", "indexcfd") else "\u20ac"
     cap = results["initial_capital"]
 
     console.print(f"\n[bold]Monte Carlo Results — {mode.upper()} CFD[/bold]")
@@ -244,7 +249,7 @@ def save_plot(results: dict, output_dir: str, mode: str) -> None:
     import matplotlib.pyplot as plt
 
     os.makedirs(output_dir, exist_ok=True)
-    currency = "$" if mode == "us" else "\u20ac"
+    currency = "$" if mode in ("us", "indexcfd") else "\u20ac"
 
     fig, axes = plt.subplots(1, 2, figsize=(14, 5))
 
@@ -321,8 +326,8 @@ def main() -> None:
         description="Monte Carlo simulation for trade-order sensitivity analysis"
     )
     parser.add_argument(
-        "--mode", choices=["ita", "us", "etf"], required=True,
-        help="Strategy mode (ita, us, or etf)",
+        "--mode", choices=list(MODE_CONFIG.keys()), required=True,
+        help="Strategy mode (ita, us, etf, or indexcfd)",
     )
     parser.add_argument(
         "--simulations", type=int, default=10_000,
