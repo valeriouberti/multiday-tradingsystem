@@ -6,8 +6,8 @@
 name: US Validator
 
 on:
-  schedule:
-    - cron: "15 11 * * 1-5"   # Mon-Fri 11:15 UTC → 13:15 CEST
+  #schedule:
+   # - cron: "15 11 * * 1-5"   # Mon-Fri 11:15 UTC → 13:15 CEST
   workflow_dispatch:
     inputs:
       tickers:
