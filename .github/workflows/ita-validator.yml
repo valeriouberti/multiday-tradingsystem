@@ -6,8 +6,8 @@
 name: ITA Validator
 
 on:
-  schedule:
-    - cron: "30 6 * * 1-5"   # Mon-Fri 6:30 UTC → 8:30 CEST
+  #schedule:
+    #- cron: "30 6 * * 1-5"   # Mon-Fri 6:30 UTC → 8:30 CEST
   workflow_dispatch:
     inputs:
       tickers:
