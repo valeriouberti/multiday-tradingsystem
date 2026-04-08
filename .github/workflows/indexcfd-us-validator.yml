@@ -7,8 +7,8 @@
 name: Index CFD US Validator
 
 on:
-  schedule:
-    - cron: "45 12 * * 1-5"   # Mon-Fri 12:45 UTC → 14:45 CEST
+  #schedule:
+   # - cron: "45 12 * * 1-5"   # Mon-Fri 12:45 UTC → 14:45 CEST
   workflow_dispatch:
     inputs:
       tickers:
